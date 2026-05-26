@@ -1,0 +1,210 @@
+body {
+  margin: 0;
+  background: #0f172a;
+  color: white;
+  font-family: Arial, sans-serif;
+}
+
+.app {
+  min-height: 100vh;
+  padding: 30px;
+  background: radial-gradient(circle at top, #1f2937, #020617);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 34px;
+}
+
+.header p {
+  margin: 4px 0 0;
+  color: #cbd5e1;
+}
+
+.liveBadge {
+  background: linear-gradient(135deg, #f97316, #ef4444);
+  padding: 12px 22px;
+  border-radius: 999px;
+  font-weight: bold;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.statCard {
+  border: 1px solid #fb6045;
+  border-radius: 18px;
+  padding: 22px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.statCard h2 {
+  color: #fb6045;
+  font-size: 36px;
+  margin: 0;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.filters button,
+.statusButtons button,
+.adminActions button,
+.adminActions a {
+  border: 1px solid #fb6045;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(251, 96, 69, 0.12);
+  color: white;
+  cursor: pointer;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.filters button:hover,
+.filters .activeFilter,
+.statusButtons button:hover,
+.adminActions button:hover,
+.adminActions a:hover {
+  background: #fb6045;
+}
+
+.jobsList {
+  display: grid;
+  gap: 20px;
+}
+
+.jobCard {
+  background: rgba(255, 255, 255, 0.06);
+  border-left: 7px solid #fb6045;
+  border-radius: 20px;
+  padding: 24px;
+}
+
+.jobTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.jobTop h2 {
+  margin: 0 0 8px;
+}
+
+.muted {
+  color: #cbd5e1;
+}
+
+.muted a {
+  color: #67e8f9;
+  font-weight: bold;
+}
+
+.badges {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.statusBadge,
+.paymentBadge,
+.driverBadge {
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.statusBadge {
+  background: #f97316;
+}
+
+.paymentBadge {
+  background: #64748b;
+}
+
+.activeDriver {
+  background: #22c55e;
+}
+
+.inactiveDriver {
+  background: #94a3b8;
+}
+
+.jobGrid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.jobGrid div {
+  background: rgba(255, 255, 255, 0.06);
+  padding: 14px;
+  border-radius: 14px;
+  text-align: center;
+}
+
+.jobGrid small {
+  display: block;
+  color: #cbd5e1;
+  margin-bottom: 6px;
+}
+
+.statusButtons,
+.adminActions,
+.linkInputs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.linkInputs input {
+  flex: 1;
+  min-width: 220px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #334155;
+  background: #0f172a;
+  color: white;
+}
+
+@media (max-width: 800px) {
+  .statsGrid,
+  .jobGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .jobTop {
+    flex-direction: column;
+  }
+}.jobGrid div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.jobGrid small {
+  font-size: 13px;
+}
+
+.jobGrid strong {
+  font-size: 16px;
+}
