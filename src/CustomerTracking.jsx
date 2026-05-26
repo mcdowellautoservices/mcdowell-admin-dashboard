@@ -1,121 +1,135 @@
+// src/CustomerTracking.jsx
+
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { doc, onSnapshot } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  serverTimestamp,
+} from "firebase/firestore";
 import { db } from "./firebaseconfig";
 import "./CustomerTracking.css";
 
 export default function CustomerTracking() {
-  const { id } = useParams();
-  const [booking, setBooking] = useState(null);
+  const { jobId } = useParams();
+
+  const [job, setJob] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!id) return;
+    fetchJob();
+  }, []);
 
-    const unsubscribe = onSnapshot(doc(db, "bookings", id), (docSnap) => {
+  const fetchJob = async () => {
+    try {
+      const docRef = doc(db, "bookings", jobId);
+      const docSnap = await getDoc(docRef);
+
       if (docSnap.exists()) {
-        setBooking({
-          id: docSnap.id,
-          ...docSnap.data(),
-        });
-      } else {
-        setBooking(null);
+        setJob(docSnap.data());
       }
-    });
 
-    return () => unsubscribe();
-  }, [id]);
+      setLoading(false);
+    } catch (error) {
+      console.error(error);
+      setLoading(false);
+    }
+  };
 
-  if (!booking) {
+  const createNewBooking = async () => {
+    try {
+      const docRef = doc(db, "bookings", jobId);
+
+      await updateDoc(docRef, {
+        newBookingRequested: true,
+        updatedAt: serverTimestamp(),
+      });
+
+      alert("New booking request sent");
+    } catch (error) {
+      console.error(error);
+      alert("Error sending request");
+    }
+  };
+
+  if (loading) {
     return (
-      <div className="tracking-page">
-        <div className="tracking-card">
-          <h1>Job Tracking</h1>
-          <p><strong>Job ID:</strong> {id}</p>
-          <p>No booking found for this Job ID.</p>
+      <div className="trackingPage">
+        <div className="trackingCard">
+          <h2>Loading...</h2>
         </div>
       </div>
     );
   }
 
-  const customerName = booking.name || booking.customerName || "Customer";
-  const phone = booking.phone || booking.customerPhone || "";
-  const vehicle = booking.vehicle || booking.vehicleType || "Not checked";
-  const registration = booking.registration || booking.reg || "N/A";
-  const address = booking.address || booking.customerAddress || booking.location || "N/A";
-  const notes = booking.notes || booking.message || booking.description || "N/A";
-  const status = booking.status || "New booking";
-  const eta = booking.eta || "Awaiting ETA";
-  const invoiceUrl = booking.invoiceUrl || "";
-  const paymentUrl = booking.paymentUrl || "";
-
-  const whatsappMessage = encodeURIComponent(
-    `Hi ${customerName}, your McDowell Auto Services job ${id} is currently: ${status}.`
-  );
-
-  const whatsappUrl = phone
-    ? `https://wa.me/44${String(phone).replace(/^0/, "")}?text=${whatsappMessage}`
-    : "";
-
-  const steps = ["New booking", "Accepted", "On Route", "Arrived", "In Progress", "Completed"];
+  if (!job) {
+    return (
+      <div className="trackingPage">
+        <div className="trackingCard">
+          <h2>Job not found</h2>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="tracking-page">
-      <div className="tracking-card">
+    <div className="trackingPage">
+      <div className="trackingCard">
         <h1>Job Tracking</h1>
 
-        <p className="job-id">
-          <strong>Job ID:</strong> {id}
+        <p className="jobId">
+          Job ID: <span>{jobId}</span>
         </p>
 
-        <h2>{customerName}</h2>
-
-        <div className="status-pill">{status}</div>
-
-        <div className="details-grid">
-          <p><strong>Phone:</strong> {phone || "N/A"}</p>
-          <p><strong>Vehicle:</strong> {vehicle}</p>
-          <p><strong>Registration:</strong> {registration}</p>
-          <p><strong>Address:</strong> {address}</p>
-          <p><strong>ETA:</strong> {eta}</p>
-          <p><strong>Notes:</strong> {notes}</p>
-        </div>
-
-        <div className="timeline">
-          {steps.map((step) => (
-            <div
-              key={step}
-              className={`timeline-step ${
-                steps.indexOf(step) <= steps.indexOf(status) ? "active" : ""
-              }`}
-            >
-              <span></span>
-              <p>{step}</p>
-            </div>
-          ))}
-        </div>
+        <h2>{job.customerName}</h2>
 
         <div className="tracking-actions">
-          {whatsappUrl && (
-            <a href={whatsappUrl} target="_blank" rel="noreferrer">
-              WhatsApp Update
-            </a>
-          )}
+          <button onClick={createNewBooking}>
+            New booking
+          </button>
 
-          {paymentUrl ? (
-            <a href={paymentUrl} target="_blank" rel="noreferrer">
-              Pay Now
-            </a>
-          ) : (
-            <button disabled>Payment Pending</button>
-          )}
+          <a href="tel:07592247365" className="callButton">
+            Call McDowell
+          </a>
 
-          {invoiceUrl ? (
-            <a href={invoiceUrl} target="_blank" rel="noreferrer">
-              Download Invoice
-            </a>
-          ) : (
-            <button disabled>No Invoice Yet</button>
-          )}
+          <a
+            href="https://wa.me/447592247365"
+            target="_blank"
+            rel="noreferrer"
+            className="whatsappButton"
+          >
+            WhatsApp McDowell
+          </a>
+        </div>
+
+        <div className="infoBox">
+          <strong>Phone:</strong> {job.phone || "N/A"}
+        </div>
+
+        <div className="infoBox">
+          <strong>Vehicle:</strong> {job.vehicle || "Not checked"}
+        </div>
+
+        <div className="infoBox">
+          <strong>Registration:</strong> {job.registration || "N/A"}
+        </div>
+
+        <div className="infoBox">
+          <strong>Address:</strong> {job.address || "N/A"}
+        </div>
+
+        <div className="infoBox">
+          <strong>ETA:</strong> {job.eta || "Awaiting ETA"}
+        </div>
+
+        <div className="infoBox">
+          <strong>Notes:</strong> {job.notes || "N/A"}
+        </div>
+
+        <div className="statusBox">
+          <h3>Status</h3>
+          <p>{job.status || "Pending"}</p>
         </div>
       </div>
     </div>
