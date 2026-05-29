@@ -1,282 +1,123 @@
+/* src/App.css */
+
 body {
   margin: 0;
-  background: #0f172a;
-  color: white;
   font-family: Arial, sans-serif;
+  background: #020617;
+  color: white;
 }
 
 .app {
-  min-height: 100vh;
-  padding: 30px;
-  background: radial-gradient(circle at top, #1f2937, #020617);
+  padding: 20px;
 }
 
-.logoutButton {
-  position: fixed;
-  top: 15px;
-  right: 15px;
-  z-index: 9999;
-  padding: 10px 14px;
-  border-radius: 10px;
-  border: none;
-  background: #fb6045;
-  color: white;
-  font-weight: bold;
-  cursor: pointer;
-}
-
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 30px;
-  padding-right: 90px;
-}
-
-.header h1 {
-  margin: 0;
-  font-size: 34px;
-}
-
-.header p {
-  margin: 4px 0 0;
-  color: #cbd5e1;
-}
-
-.liveBadge {
-  background: linear-gradient(135deg, #f97316, #ef4444);
-  padding: 12px 22px;
-  border-radius: 999px;
-  font-weight: bold;
-}
-
-.statsGrid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 18px;
-  margin-bottom: 24px;
-}
-
-.statCard {
-  border: 1px solid #fb6045;
-  border-radius: 18px;
-  padding: 22px;
+h1 {
   text-align: center;
-  background: rgba(255, 255, 255, 0.04);
+  margin-bottom: 30px;
 }
 
-.statCard h2 {
-  color: #fb6045;
-  font-size: 36px;
-  margin: 0;
-}
-
-.createJobPanel {
-  margin-bottom: 24px;
-  padding: 22px;
-  border: 1px solid #334155;
-  border-radius: 20px;
-  background: rgba(255,255,255,0.05);
-}
-
-.createJobPanel h2 {
-  margin-top: 0;
-}
-
-.createJobForm {
+.createForm {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
+  margin-bottom: 40px;
 }
 
-.createJobForm input,
-.createJobForm select,
-.createJobForm button {
-  padding: 13px;
+.createForm input,
+.createForm textarea {
+  padding: 14px;
   border-radius: 12px;
   border: 1px solid #334155;
-  font-size: 15px;
-}
-
-.createJobForm input,
-.createJobForm select {
   background: #0f172a;
   color: white;
 }
 
-.createJobForm button {
-  background: #22c55e;
-  color: white;
+.createForm button {
+  padding: 14px;
   border: none;
-  font-weight: bold;
-  cursor: pointer;
-}
-
-.filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 24px;
-}
-
-.filters button,
-.statusButtons button,
-.adminActions button,
-.adminActions a {
-  border: 1px solid #fb6045;
-  padding: 10px 14px;
   border-radius: 12px;
-  background: rgba(251, 96, 69, 0.12);
-  color: white;
-  cursor: pointer;
+  background: orange;
+  color: black;
   font-weight: bold;
-  text-decoration: none;
+  cursor: pointer;
 }
 
-.filters button:hover,
-.filters .activeFilter,
-.statusButtons button:hover,
-.adminActions button:hover,
-.adminActions a:hover {
-  background: #fb6045;
-}
-
-.jobsList {
+.bookingsGrid {
   display: grid;
   gap: 20px;
 }
 
 .jobCard {
-  background: rgba(255, 255, 255, 0.06);
-  border-left: 7px solid #fb6045;
-  border-radius: 20px;
-  padding: 24px;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 18px;
+  padding: 20px;
 }
 
-.jobTop {
-  display: flex;
-  justify-content: space-between;
-  gap: 20px;
+.jobCard h2 {
+  margin-top: 0;
 }
 
-.jobTop h2 {
-  margin: 0 0 8px;
-}
-
-.muted {
-  color: #cbd5e1;
-}
-
-.muted a {
-  color: #67e8f9;
-  font-weight: bold;
-}
-
-.badges {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.statusBadge,
-.paymentBadge,
-.driverBadge {
-  padding: 10px 14px;
-  border-radius: 999px;
-  font-weight: bold;
-  text-align: center;
-}
-
-.statusBadge {
-  background: #f97316;
-}
-
-.paymentBadge {
-  background: #64748b;
-}
-
-.activeDriver {
-  background: #22c55e;
-}
-
-.inactiveDriver {
-  background: #94a3b8;
-}
-
-.jobGrid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 12px;
-  margin-top: 20px;
-}
-
-.jobGrid div {
-  background: rgba(255, 255, 255, 0.06);
-  padding: 14px;
-  border-radius: 14px;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.jobGrid small {
-  display: block;
-  color: #cbd5e1;
-  font-size: 13px;
-}
-
-.jobGrid strong {
-  font-size: 16px;
-}
-
-.statusButtons,
-.adminActions,
-.quickWhatsApp,
-.linkInputs {
+.etaControls {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 16px;
 }
 
-.quickWhatsApp a {
-  padding: 10px 14px;
-  border-radius: 12px;
-  background: #22c55e;
-  color: white;
-  font-weight: bold;
-  text-decoration: none;
-}
-
-.quickWhatsApp a:hover {
-  background: #16a34a;
-}
-
-.linkInputs input {
+.etaControls input {
   flex: 1;
   min-width: 220px;
   padding: 12px;
   border-radius: 12px;
   border: 1px solid #334155;
-  background: #0f172a;
+  background: #020617;
   color: white;
 }
 
-@media (max-width: 900px) {
-  .statsGrid,
-  .jobGrid,
-  .createJobForm {
-    grid-template-columns: 1fr;
-  }
+.etaControls button,
+.etaControls a {
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  color: white;
+  font-weight: bold;
+  text-decoration: none;
+  cursor: pointer;
+}
 
-  .jobTop {
-    flex-direction: column;
-  }
+.deleteBtn {
+  background: crimson !important;
+  border: none !important;
+}.etaControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid #38bdf8;
+  border-radius: 14px;
+  background: rgba(56, 189, 248, 0.08);
+}
 
-  .header {
-    flex-direction: column;
-    align-items: flex-start;
-    padding-right: 0;
-  }
+.etaControls input {
+  flex: 1;
+  min-width: 220px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #38bdf8;
+  background: #020617;
+  color: white;
+}
+
+.etaControls button,
+.etaControls a {
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid #38bdf8;
+  background: #0284c7;
+  color: white;
+  font-weight: bold;
+  text-decoration: none;
+  cursor: pointer;
 }

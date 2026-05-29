@@ -28,12 +28,7 @@ export default function App() {
     const q = query(collection(db, "bookings"), orderBy("createdAt", "desc"));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setBookings(
-        snapshot.docs.map((docItem) => ({
-          id: docItem.id,
-          ...docItem.data(),
-        }))
-      );
+      setBookings(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
 
     return () => unsubscribe();
@@ -53,11 +48,13 @@ export default function App() {
       ...newJob,
       status: "New booking",
       eta: "Awaiting ETA",
+      etaMode: "manual",
       paymentStatus: "Unpaid",
       driverTrackingActive: false,
       paymentUrl: "",
       invoiceUrl: "",
       notes: "",
+      manualEta: "",
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -72,13 +69,18 @@ export default function App() {
     });
   }
 
-  function makeWhatsAppLink(job) {
-    const rawPhone = String(job.phone || job.customerPhone || "").replace(/\D/g, "");
-    const phone = rawPhone.startsWith("0") ? `44${rawPhone.slice(1)}` : rawPhone;
+  function formatPhone(phoneValue) {
+    const raw = String(phoneValue || "").replace(/\D/g, "");
+    return raw.startsWith("0") ? `44${raw.slice(1)}` : raw;
+  }
+
+  function makeWhatsAppLink(job, customStatus = null) {
+    const phone = formatPhone(job.phone || job.customerPhone);
+    const status = customStatus || job.status || "New booking";
 
     const message = encodeURIComponent(
-      `Hi ${job.name || job.customerName || "there"}, your McDowell Auto Services job is now: ${
-        job.status || "New booking"
+      `Hi ${job.name || job.customerName || "there"}, your McDowell Auto Services job is now: ${status}. ETA: ${
+        job.eta || "Awaiting ETA"
       }. Track it here: ${window.location.origin}/tracking/${job.id}`
     );
 
@@ -89,13 +91,6 @@ export default function App() {
     filter === "All"
       ? bookings
       : bookings.filter((job) => (job.status || "New booking") === filter);
-
-  const totalJobs = bookings.length;
-  const newJobs = bookings.filter(
-    (job) => (job.status || "New booking") === "New booking"
-  ).length;
-  const driversActive = bookings.filter((job) => job.driverTrackingActive).length;
-  const paidJobs = bookings.filter((job) => job.paymentStatus === "Paid").length;
 
   return (
     <div className="app">
@@ -109,19 +104,28 @@ export default function App() {
 
       <section className="statsGrid">
         <div className="statCard">
-          <h2>{totalJobs}</h2>
+          <h2>{bookings.length}</h2>
           <p>Total Jobs</p>
         </div>
+
         <div className="statCard">
-          <h2>{newJobs}</h2>
+          <h2>
+            {
+              bookings.filter(
+                (j) => (j.status || "New booking") === "New booking"
+              ).length
+            }
+          </h2>
           <p>New</p>
         </div>
+
         <div className="statCard">
-          <h2>{driversActive}</h2>
+          <h2>{bookings.filter((j) => j.driverTrackingActive).length}</h2>
           <p>Drivers Active</p>
         </div>
+
         <div className="statCard">
-          <h2>{paidJobs}</h2>
+          <h2>{bookings.filter((j) => j.paymentStatus === "Paid").length}</h2>
           <p>Paid</p>
         </div>
       </section>
@@ -200,206 +204,260 @@ export default function App() {
         ))}
       </section>
 
-      <section className="jobsList">
-        {filteredBookings.map((job) => {
-          const status = job.status || "New booking";
-          const service = job.service || "Mobile Tyre Fitting";
-          const customer = job.name || job.customerName || "Customer";
-          const phone = job.phone || job.customerPhone || "N/A";
-          const registration = job.registration || job.reg || "N/A";
-          const vehicle = job.vehicle || job.vehicleType || "Not checked";
-          const paymentStatus = job.paymentStatus || "Unpaid";
-          const eta = job.eta || "Awaiting ETA";
-
-          return (
-            <div className="jobCard" key={job.id}>
-              <div className="jobTop">
-                <div>
-                  <h2>{service}</h2>
-
-                  <p className="muted">
-                    Job ID:{" "}
-                    <a
-                      href={`/tracking/${job.id}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {job.id}
-                    </a>
-                  </p>
-                </div>
-
-                <div className="badges">
-                  <span className="statusBadge">{status}</span>
-                  <span className="paymentBadge">{paymentStatus}</span>
-                  <span
-                    className={
-                      job.driverTrackingActive
-                        ? "driverBadge activeDriver"
-                        : "driverBadge inactiveDriver"
-                    }
-                  >
-                    {job.driverTrackingActive ? "Driver Live" : "Driver Offline"}
-                  </span>
-                </div>
+      <section className="bookingsList">
+        {filteredBookings.map((job) => (
+          <div className="jobCard" key={job.id}>
+            <div className="jobTop">
+              <div>
+                <h2>{job.service || "Mobile Tyre Fitting"}</h2>
+                <p className="muted">
+                  Job ID:{" "}
+                  <a href={`/tracking/${job.id}`} target="_blank" rel="noreferrer">
+                    {job.id}
+                  </a>
+                </p>
               </div>
 
-              <div className="jobGrid">
-                <div>
-                  <small>Customer</small>
-                  <strong>{customer}</strong>
-                </div>
-                <div>
-                  <small>Phone</small>
-                  <strong>{phone}</strong>
-                </div>
-                <div>
-                  <small>Registration</small>
-                  <strong>{registration}</strong>
-                </div>
-                <div>
-                  <small>Vehicle</small>
-                  <strong>{vehicle}</strong>
-                </div>
-                <div>
-                  <small>ETA</small>
-                  <strong>{eta}</strong>
-                </div>
-              </div>
-
-              <div className="statusButtons">
-                <button
-                  onClick={() =>
-                    updateJob(job.id, {
-                      status: "Accepted",
-                      eta: "30 minutes",
-                    })
+              <div className="badges">
+                <span className="statusBadge">{job.status || "New booking"}</span>
+                <span className="paymentBadge">{job.paymentStatus || "Unpaid"}</span>
+                <span
+                  className={
+                    job.driverTrackingActive
+                      ? "driverBadge activeDriver"
+                      : "driverBadge inactiveDriver"
                   }
                 >
-                  Accept
-                </button>
-
-                <button
-                  onClick={() =>
-                    updateJob(job.id, {
-                      status: "On Route",
-                      eta: "20 minutes",
-                      driverTrackingActive: true,
-                    })
-                  }
-                >
-                  On Route
-                </button>
-
-                <button
-                  onClick={() =>
-                    updateJob(job.id, {
-                      status: "Arrived",
-                      eta: "Arrived",
-                    })
-                  }
-                >
-                  Arrived
-                </button>
-
-                <button
-                  onClick={() =>
-                    updateJob(job.id, {
-                      status: "In Progress",
-                      eta: "In progress",
-                    })
-                  }
-                >
-                  In Progress
-                </button>
-
-                <button
-                  onClick={() =>
-                    updateJob(job.id, {
-                      status: "Completed",
-                      eta: "Completed",
-                      driverTrackingActive: false,
-                    })
-                  }
-                >
-                  Complete
-                </button>
-
-                <button
-                  onClick={() =>
-                    updateJob(job.id, {
-                      status: "Cancelled",
-                      eta: "Cancelled",
-                      driverTrackingActive: false,
-                    })
-                  }
-                >
-                  Cancel
-                </button>
-              </div>
-
-              <div className="adminActions">
-                <button
-                  onClick={() =>
-                    updateJob(job.id, {
-                      paymentStatus: "Paid",
-                    })
-                  }
-                >
-                  Mark Paid
-                </button>
-
-                <button
-                  onClick={() =>
-                    updateJob(job.id, {
-                      paymentStatus: "Unpaid",
-                    })
-                  }
-                >
-                  Mark Unpaid
-                </button>
-
-                <button
-                  onClick={() =>
-                    updateJob(job.id, {
-                      driverTrackingActive: !job.driverTrackingActive,
-                    })
-                  }
-                >
-                  {job.driverTrackingActive
-                    ? "Stop Driver Tracking"
-                    : "Start Driver Tracking"}
-                </button>
-
-                <a href={makeWhatsAppLink(job)} target="_blank" rel="noreferrer">
-                  WhatsApp Customer
-                </a>
-              </div>
-
-              <div className="linkInputs">
-                <input
-                  placeholder="Paste Stripe payment link"
-                  defaultValue={job.paymentUrl || ""}
-                  onBlur={(e) =>
-                    updateJob(job.id, {
-                      paymentUrl: e.target.value,
-                    })
-                  }
-                />
-
-                <input
-                  placeholder="Paste invoice PDF link"
-                  defaultValue={job.invoiceUrl || ""}
-                  onBlur={(e) =>
-                    updateJob(job.id, {
-                      invoiceUrl: e.target.value,
-                    })
-                  }
-                />
+                  {job.driverTrackingActive ? "Driver Live" : "Driver Offline"}
+                </span>
               </div>
             </div>
-          );
-        })}
+
+            <div className="jobGrid">
+              <div>
+                <small>Customer</small>
+                <strong>{job.name || job.customerName || "Customer"}</strong>
+              </div>
+              <div>
+                <small>Phone</small>
+                <strong>{job.phone || job.customerPhone || "N/A"}</strong>
+              </div>
+              <div>
+                <small>Registration</small>
+                <strong>{job.registration || job.reg || "N/A"}</strong>
+              </div>
+              <div>
+                <small>Vehicle</small>
+                <strong>{job.vehicle || "Not checked"}</strong>
+              </div>
+              <div>
+                <small>ETA</small>
+                <strong>{job.eta || "Awaiting ETA"}</strong>
+              </div>
+            </div>
+
+            <div className="statusButtons">
+              <button
+                onClick={() =>
+                  updateJob(job.id, {
+                    status: "Accepted",
+                    eta: "30 minutes",
+                    etaMode: "manual",
+                  })
+                }
+              >
+                Accept
+              </button>
+
+              <button
+                onClick={() =>
+                  updateJob(job.id, {
+                    status: "On Route",
+                    eta: "20 minutes",
+                    etaMode: "manual",
+                    driverTrackingActive: true,
+                  })
+                }
+              >
+                On Route
+              </button>
+
+              <button
+                onClick={() =>
+                  updateJob(job.id, {
+                    status: "Arrived",
+                    eta: "Arrived",
+                    etaMode: "manual",
+                  })
+                }
+              >
+                Arrived
+              </button>
+
+              <button
+                onClick={() =>
+                  updateJob(job.id, {
+                    status: "In Progress",
+                    eta: "In progress",
+                    etaMode: "manual",
+                  })
+                }
+              >
+                In Progress
+              </button>
+
+              <button
+                onClick={() =>
+                  updateJob(job.id, {
+                    status: "Completed",
+                    eta: "Completed",
+                    etaMode: "manual",
+                    driverTrackingActive: false,
+                  })
+                }
+              >
+                Complete
+              </button>
+
+              <button
+                onClick={() =>
+                  updateJob(job.id, {
+                    status: "Cancelled",
+                    eta: "Cancelled",
+                    etaMode: "manual",
+                    driverTrackingActive: false,
+                  })
+                }
+              >
+                Cancel
+              </button>
+            </div>
+
+            <div className="etaControls">
+              <input
+                placeholder="Type ETA e.g. 12 minutes"
+                value={job.manualEta || ""}
+                onChange={(e) =>
+                  updateJob(job.id, {
+                    manualEta: e.target.value,
+                  })
+                }
+              />
+
+              <button
+                onClick={() =>
+                  updateJob(job.id, {
+                    eta: job.manualEta || "Awaiting ETA",
+                    etaMode: "manual",
+                  })
+                }
+              >
+                Update ETA
+              </button>
+
+              <button
+                onClick={() =>
+                  updateJob(job.id, {
+                    eta: "5 minutes",
+                    etaMode: "manual",
+                  })
+                }
+              >
+                ETA 5 min
+              </button>
+
+              <button
+                onClick={() =>
+                  updateJob(job.id, {
+                    eta: "15 minutes",
+                    etaMode: "manual",
+                  })
+                }
+              >
+                ETA 15 min
+              </button>
+
+              <button
+                onClick={() =>
+                  updateJob(job.id, {
+                    eta: "30 minutes",
+                    etaMode: "manual",
+                  })
+                }
+              >
+                ETA 30 min
+              </button>
+
+              <button
+                onClick={() =>
+                  updateJob(job.id, {
+                    eta: "Delayed",
+                    etaMode: "manual",
+                  })
+                }
+              >
+                Delayed
+              </button>
+
+              <a href={`/driver/${job.id}`} target="_blank" rel="noreferrer">
+                Open Driver GPS
+              </a>
+            </div>
+
+            <div className="adminActions">
+              <button onClick={() => updateJob(job.id, { paymentStatus: "Paid" })}>
+                Mark Paid
+              </button>
+
+              <button onClick={() => updateJob(job.id, { paymentStatus: "Unpaid" })}>
+                Mark Unpaid
+              </button>
+
+              <button
+                onClick={() =>
+                  updateJob(job.id, {
+                    driverTrackingActive: !job.driverTrackingActive,
+                  })
+                }
+              >
+                {job.driverTrackingActive ? "Stop Driver Tracking" : "Start Driver Tracking"}
+              </button>
+
+              <a href={makeWhatsAppLink(job)} target="_blank" rel="noreferrer">
+                WhatsApp Customer
+              </a>
+            </div>
+
+            <div className="quickWhatsApp">
+              <a href={makeWhatsAppLink(job, "Accepted")} target="_blank" rel="noreferrer">
+                Send Accepted WhatsApp
+              </a>
+              <a href={makeWhatsAppLink(job, "On Route")} target="_blank" rel="noreferrer">
+                Send On Route WhatsApp
+              </a>
+              <a href={makeWhatsAppLink(job, "Arrived")} target="_blank" rel="noreferrer">
+                Send Arrived WhatsApp
+              </a>
+              <a href={makeWhatsAppLink(job, "Completed")} target="_blank" rel="noreferrer">
+                Send Completed WhatsApp
+              </a>
+            </div>
+
+            <div className="linkInputs">
+              <input
+                placeholder="Paste Stripe payment link"
+                defaultValue={job.paymentUrl || ""}
+                onBlur={(e) => updateJob(job.id, { paymentUrl: e.target.value })}
+              />
+
+              <input
+                placeholder="Paste invoice PDF link"
+                defaultValue={job.invoiceUrl || ""}
+                onBlur={(e) => updateJob(job.id, { invoiceUrl: e.target.value })}
+              />
+            </div>
+          </div>
+        ))}
       </section>
     </div>
   );
