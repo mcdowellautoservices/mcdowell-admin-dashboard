@@ -87,10 +87,10 @@ export default function App() {
     return `https://wa.me/${phone}?text=${message}`;
   }
 
-  const filteredBookings =
-    filter === "All"
-      ? bookings
-      : bookings.filter((job) => (job.status || "New booking") === filter);
+ const filteredBookings =
+  filter === "All"
+    ? bookings.filter((job) => (job.status || "New booking") !== "Cancelled")
+    : bookings.filter((job) => (job.status || "New booking") === filter);
 
   return (
     <div className="app">

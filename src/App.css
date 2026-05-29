@@ -1,5 +1,3 @@
-/* src/App.css */
-
 body {
   margin: 0;
   font-family: Arial, sans-serif;
@@ -11,62 +9,57 @@ body {
   padding: 20px;
 }
 
-h1 {
-  text-align: center;
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 30px;
 }
 
-.createForm {
-  display: grid;
-  gap: 12px;
-  margin-bottom: 40px;
+.header h1 {
+  margin: 0;
 }
 
-.createForm input,
-.createForm textarea {
-  padding: 14px;
-  border-radius: 12px;
-  border: 1px solid #334155;
-  background: #0f172a;
-  color: white;
-}
-
-.createForm button {
-  padding: 14px;
-  border: none;
-  border-radius: 12px;
-  background: orange;
-  color: black;
+.liveBadge {
+  background: #22c55e;
+  padding: 10px 16px;
+  border-radius: 999px;
   font-weight: bold;
-  cursor: pointer;
 }
 
-.bookingsGrid {
+.statsGrid {
   display: grid;
-  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
 }
 
+.statCard {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 16px;
+  padding: 18px;
+  text-align: center;
+}
+
+.createJobPanel,
 .jobCard {
   background: #0f172a;
   border: 1px solid #334155;
   border-radius: 18px;
   padding: 20px;
+  margin-bottom: 20px;
 }
 
-.jobCard h2 {
-  margin-top: 0;
+.createJobForm {
+  display: grid;
+  gap: 12px;
 }
 
-.etaControls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 16px;
-}
-
+.createJobForm input,
+.createJobForm select,
+.linkInputs input,
 .etaControls input {
-  flex: 1;
-  min-width: 220px;
   padding: 12px;
   border-radius: 12px;
   border: 1px solid #334155;
@@ -74,42 +67,12 @@ h1 {
   color: white;
 }
 
-.etaControls button,
-.etaControls a {
-  padding: 10px 14px;
-  border-radius: 12px;
-  border: 1px solid #38bdf8;
-  background: rgba(56, 189, 248, 0.12);
-  color: white;
-  font-weight: bold;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.deleteBtn {
-  background: crimson !important;
-  border: none !important;
-}.etaControls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 16px;
-  padding: 14px;
-  border: 1px solid #38bdf8;
-  border-radius: 14px;
-  background: rgba(56, 189, 248, 0.08);
-}
-
-.etaControls input {
-  flex: 1;
-  min-width: 220px;
-  padding: 12px;
-  border-radius: 12px;
-  border: 1px solid #38bdf8;
-  background: #020617;
-  color: white;
-}
-
+.createJobForm button,
+.filters button,
+.statusButtons button,
+.adminActions button,
+.adminActions a,
+.quickWhatsApp a,
 .etaControls button,
 .etaControls a {
   padding: 10px 14px;
@@ -120,11 +83,90 @@ h1 {
   font-weight: bold;
   text-decoration: none;
   cursor: pointer;
-}.etaControls {
+}
+
+.filters,
+.statusButtons,
+.adminActions,
+.quickWhatsApp,
+.linkInputs,
+.etaControls {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 16px;
+}
+
+.activeFilter {
+  background: #22c55e !important;
+  border-color: #22c55e !important;
+}
+
+.bookingsList {
+  display: grid;
+  gap: 20px;
+}
+
+.jobTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.muted a {
+  color: #38bdf8;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.statusBadge,
+.paymentBadge,
+.driverBadge {
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-weight: bold;
+}
+
+.statusBadge {
+  background: #f97316;
+}
+
+.paymentBadge {
+  background: #64748b;
+}
+
+.activeDriver {
+  background: #22c55e;
+}
+
+.inactiveDriver {
+  background: #475569;
+}
+
+.jobGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.jobGrid div {
+  background: #020617;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.jobGrid small {
+  display: block;
+  color: #94a3b8;
+  margin-bottom: 6px;
+}
+
+.etaControls {
   padding: 14px;
   border: 1px solid #38bdf8;
   border-radius: 14px;
@@ -134,21 +176,9 @@ h1 {
 .etaControls input {
   flex: 1;
   min-width: 260px;
-  padding: 12px;
-  border-radius: 12px;
-  border: 1px solid #38bdf8;
-  background: #020617;
-  color: white;
 }
 
-.etaControls button,
-.etaControls a {
-  padding: 10px 14px;
-  border-radius: 12px;
-  border: 1px solid #38bdf8;
-  background: #0284c7;
-  color: white;
-  font-weight: bold;
-  text-decoration: none;
-  cursor: pointer;
+.linkInputs input {
+  flex: 1;
+  min-width: 240px;
 }
