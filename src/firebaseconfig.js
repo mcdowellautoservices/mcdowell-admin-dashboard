@@ -3,12 +3,12 @@ import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyD6aEonsVeyHZ6ZN1oHzUXtSc8o7G-EycM",
-  authDomain: "mcdowell-tyre-app.firebaseapp.com",
-  projectId: "mcdowell-tyre-app",
-  storageBucket: "mcdowell-tyre-app.firebasestorage.app",
-  messagingSenderId: "299380777264",
-  appId: "1:299380777264:web:25b15ac214a89cc8a128f5",
+  apiKey: "YOUR_REAL_API_KEY",
+  authDomain: "YOUR_REAL_PROJECT.firebaseapp.com",
+  projectId: "YOUR_REAL_PROJECT_ID",
+  storageBucket: "YOUR_REAL_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_REAL_SENDER_ID",
+  appId: "YOUR_REAL_APP_ID",
 };
 
 const app = initializeApp(firebaseConfig);
