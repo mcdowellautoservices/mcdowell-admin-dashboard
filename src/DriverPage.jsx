@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebaseconfig.js";
-import "./DriverTracker.css";
 
 export default function DriverPage() {
   const { id } = useParams();
@@ -53,30 +52,35 @@ export default function DriverPage() {
   }
 
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: "#020617",
-      color: "white",
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "center",
-      padding: "20px"
-    }}>
-      <div style={{
-        width: "100%",
-        maxWidth: "500px",
-        background: "#0f172a",
-        border: "1px solid #334155",
-        borderRadius: "20px",
-        padding: "30px",
-        textAlign: "center"
-      }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#020617",
+        color: "white",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: "20px",
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: "500px",
+          background: "#0f172a",
+          border: "1px solid #334155",
+          borderRadius: "20px",
+          padding: "30px",
+          textAlign: "center",
+        }}
+      >
         <h1>Driver GPS Tracking</h1>
         <p>Job ID: {id}</p>
         <p>Status: {status}</p>
 
         <button onClick={startTracking}>Start Live GPS</button>
-        <br /><br />
+        <br />
+        <br />
         <button onClick={stopTracking}>Stop GPS</button>
       </div>
     </div>
