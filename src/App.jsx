@@ -49,12 +49,12 @@ export default function App() {
       status: "New booking",
       eta: "Awaiting ETA",
       etaMode: "manual",
+      manualEta: "",
       paymentStatus: "Unpaid",
       driverTrackingActive: false,
       paymentUrl: "",
       invoiceUrl: "",
       notes: "",
-      manualEta: "",
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -99,6 +99,7 @@ export default function App() {
           <h1>McDowell Admin Dashboard</h1>
           <p>Live tyre, roadside, recovery and driver map tracking</p>
         </div>
+
         <span className="liveBadge">LIVE</span>
       </header>
 
@@ -210,9 +211,14 @@ export default function App() {
             <div className="jobTop">
               <div>
                 <h2>{job.service || "Mobile Tyre Fitting"}</h2>
+
                 <p className="muted">
                   Job ID:{" "}
-                  <a href={`/tracking/${job.id}`} target="_blank" rel="noreferrer">
+                  <a
+                    href={`/tracking/${job.id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
                     {job.id}
                   </a>
                 </p>
@@ -220,7 +226,9 @@ export default function App() {
 
               <div className="badges">
                 <span className="statusBadge">{job.status || "New booking"}</span>
-                <span className="paymentBadge">{job.paymentStatus || "Unpaid"}</span>
+                <span className="paymentBadge">
+                  {job.paymentStatus || "Unpaid"}
+                </span>
                 <span
                   className={
                     job.driverTrackingActive
@@ -238,18 +246,22 @@ export default function App() {
                 <small>Customer</small>
                 <strong>{job.name || job.customerName || "Customer"}</strong>
               </div>
+
               <div>
                 <small>Phone</small>
                 <strong>{job.phone || job.customerPhone || "N/A"}</strong>
               </div>
+
               <div>
                 <small>Registration</small>
                 <strong>{job.registration || job.reg || "N/A"}</strong>
               </div>
+
               <div>
                 <small>Vehicle</small>
                 <strong>{job.vehicle || "Not checked"}</strong>
               </div>
+
               <div>
                 <small>ETA</small>
                 <strong>{job.eta || "Awaiting ETA"}</strong>
@@ -261,7 +273,7 @@ export default function App() {
                 onClick={() =>
                   updateJob(job.id, {
                     status: "Accepted",
-                    eta: "30 minutes",
+                    eta: job.manualEta || "Awaiting manual ETA",
                     etaMode: "manual",
                   })
                 }
@@ -273,8 +285,8 @@ export default function App() {
                 onClick={() =>
                   updateJob(job.id, {
                     status: "On Route",
-                    eta: "20 minutes",
-                    etaMode: "manual",
+                    eta: "Live GPS updating",
+                    etaMode: "gps",
                     driverTrackingActive: true,
                   })
                 }
@@ -287,7 +299,7 @@ export default function App() {
                   updateJob(job.id, {
                     status: "Arrived",
                     eta: "Arrived",
-                    etaMode: "manual",
+                    etaMode: "gps",
                   })
                 }
               >
@@ -335,7 +347,7 @@ export default function App() {
 
             <div className="etaControls">
               <input
-                placeholder="Type ETA e.g. 12 minutes"
+                placeholder="Manual ETA after accepting job, e.g. 25 minutes"
                 value={job.manualEta || ""}
                 onChange={(e) =>
                   updateJob(job.id, {
@@ -347,56 +359,12 @@ export default function App() {
               <button
                 onClick={() =>
                   updateJob(job.id, {
-                    eta: job.manualEta || "Awaiting ETA",
+                    eta: job.manualEta || "Awaiting manual ETA",
                     etaMode: "manual",
                   })
                 }
               >
-                Update ETA
-              </button>
-
-              <button
-                onClick={() =>
-                  updateJob(job.id, {
-                    eta: "5 minutes",
-                    etaMode: "manual",
-                  })
-                }
-              >
-                ETA 5 min
-              </button>
-
-              <button
-                onClick={() =>
-                  updateJob(job.id, {
-                    eta: "15 minutes",
-                    etaMode: "manual",
-                  })
-                }
-              >
-                ETA 15 min
-              </button>
-
-              <button
-                onClick={() =>
-                  updateJob(job.id, {
-                    eta: "30 minutes",
-                    etaMode: "manual",
-                  })
-                }
-              >
-                ETA 30 min
-              </button>
-
-              <button
-                onClick={() =>
-                  updateJob(job.id, {
-                    eta: "Delayed",
-                    etaMode: "manual",
-                  })
-                }
-              >
-                Delayed
+                Update Manual ETA
               </button>
 
               <a href={`/driver/${job.id}`} target="_blank" rel="noreferrer">
@@ -409,7 +377,9 @@ export default function App() {
                 Mark Paid
               </button>
 
-              <button onClick={() => updateJob(job.id, { paymentStatus: "Unpaid" })}>
+              <button
+                onClick={() => updateJob(job.id, { paymentStatus: "Unpaid" })}
+              >
                 Mark Unpaid
               </button>
 
@@ -420,7 +390,9 @@ export default function App() {
                   })
                 }
               >
-                {job.driverTrackingActive ? "Stop Driver Tracking" : "Start Driver Tracking"}
+                {job.driverTrackingActive
+                  ? "Stop Driver Tracking"
+                  : "Start Driver Tracking"}
               </button>
 
               <a href={makeWhatsAppLink(job)} target="_blank" rel="noreferrer">
@@ -429,16 +401,35 @@ export default function App() {
             </div>
 
             <div className="quickWhatsApp">
-              <a href={makeWhatsAppLink(job, "Accepted")} target="_blank" rel="noreferrer">
+              <a
+                href={makeWhatsAppLink(job, "Accepted")}
+                target="_blank"
+                rel="noreferrer"
+              >
                 Send Accepted WhatsApp
               </a>
-              <a href={makeWhatsAppLink(job, "On Route")} target="_blank" rel="noreferrer">
+
+              <a
+                href={makeWhatsAppLink(job, "On Route")}
+                target="_blank"
+                rel="noreferrer"
+              >
                 Send On Route WhatsApp
               </a>
-              <a href={makeWhatsAppLink(job, "Arrived")} target="_blank" rel="noreferrer">
+
+              <a
+                href={makeWhatsAppLink(job, "Arrived")}
+                target="_blank"
+                rel="noreferrer"
+              >
                 Send Arrived WhatsApp
               </a>
-              <a href={makeWhatsAppLink(job, "Completed")} target="_blank" rel="noreferrer">
+
+              <a
+                href={makeWhatsAppLink(job, "Completed")}
+                target="_blank"
+                rel="noreferrer"
+              >
                 Send Completed WhatsApp
               </a>
             </div>
