@@ -22,7 +22,7 @@ export default function DriverTracker() {
           driverLat: position.coords.latitude,
           driverLng: position.coords.longitude,
           driverTrackingActive: true,
-          eta: "Live GPS active",
+          eta: "Live GPS updating",
           etaMode: "gps",
           updatedAt: serverTimestamp(),
         });
