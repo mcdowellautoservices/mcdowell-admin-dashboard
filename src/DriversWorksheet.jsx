@@ -32,11 +32,29 @@ const workOptions = [
   "Other",
 ];
 
-export default function DriverWorksheet({ booking, jobId }) {
+export default function DriversWorksheet({ booking, jobId }) {
   const [worksheet, setWorksheet] = useState({
     ...emptyWorksheet,
     ...(booking?.worksheet || {}),
   });
+
+  function updateField(field, value) {
+    setWorksheet({
+      ...worksheet,
+      [field]: value,
+    });
+  }
+
+  function toggleWork(option) {
+    const current = worksheet.workCarriedOut || [];
+
+    setWorksheet({
+      ...worksheet,
+      workCarriedOut: current.includes(option)
+        ? current.filter((x) => x !== option)
+        : [...current, option],
+    });
+  }
 
   async function saveWorksheet() {
     if (!worksheet.technicianName.trim()) {
@@ -64,24 +82,11 @@ export default function DriverWorksheet({ booking, jobId }) {
     alert("Worksheet saved.");
   }
 
-  function toggleWork(option) {
-    const current = worksheet.workCarriedOut || [];
-
-    setWorksheet({
-      ...worksheet,
-      workCarriedOut: current.includes(option)
-        ? current.filter((x) => x !== option)
-        : [...current, option],
-    });
-  }
-
   return (
     <div style={worksheetBox}>
-      <h3 style={{ color: "#facc15", margin: 0 }}>
-        Roadside Tyre Breakdown Worksheet
-      </h3>
+      <h3 style={titleStyle}>Roadside Tyre Breakdown Worksheet</h3>
 
-      <p style={{ color: "#cbd5e1", marginTop: 0 }}>
+      <p style={helpStyle}>
         Complete this after arrival photos have been taken.
       </p>
 
@@ -90,51 +95,41 @@ export default function DriverWorksheet({ booking, jobId }) {
           style={inputStyle}
           placeholder="Make"
           value={worksheet.make}
-          onChange={(e) => setWorksheet({ ...worksheet, make: e.target.value })}
+          onChange={(e) => updateField("make", e.target.value)}
         />
 
         <input
           style={inputStyle}
           placeholder="Model"
           value={worksheet.model}
-          onChange={(e) =>
-            setWorksheet({ ...worksheet, model: e.target.value })
-          }
+          onChange={(e) => updateField("model", e.target.value)}
         />
 
         <input
           style={inputStyle}
           placeholder="Colour"
           value={worksheet.colour}
-          onChange={(e) =>
-            setWorksheet({ ...worksheet, colour: e.target.value })
-          }
+          onChange={(e) => updateField("colour", e.target.value)}
         />
 
         <input
           style={inputStyle}
           placeholder="Mileage"
           value={worksheet.mileage}
-          onChange={(e) =>
-            setWorksheet({ ...worksheet, mileage: e.target.value })
-          }
+          onChange={(e) => updateField("mileage", e.target.value)}
         />
 
         <input
           style={inputStyle}
           placeholder="Fuel Type"
           value={worksheet.fuelType}
-          onChange={(e) =>
-            setWorksheet({ ...worksheet, fuelType: e.target.value })
-          }
+          onChange={(e) => updateField("fuelType", e.target.value)}
         />
 
         <select
           style={inputStyle}
           value={worksheet.tyrePosition}
-          onChange={(e) =>
-            setWorksheet({ ...worksheet, tyrePosition: e.target.value })
-          }
+          onChange={(e) => updateField("tyrePosition", e.target.value)}
         >
           <option value="">Tyre Position *</option>
           <option>Front Left</option>
@@ -148,26 +143,20 @@ export default function DriverWorksheet({ booking, jobId }) {
           style={inputStyle}
           placeholder="Tyre Size"
           value={worksheet.tyreSize}
-          onChange={(e) =>
-            setWorksheet({ ...worksheet, tyreSize: e.target.value })
-          }
+          onChange={(e) => updateField("tyreSize", e.target.value)}
         />
 
         <input
           style={inputStyle}
           placeholder="Tyre Brand"
           value={worksheet.tyreBrand}
-          onChange={(e) =>
-            setWorksheet({ ...worksheet, tyreBrand: e.target.value })
-          }
+          onChange={(e) => updateField("tyreBrand", e.target.value)}
         />
 
         <select
           style={inputStyle}
           value={worksheet.tyreCondition}
-          onChange={(e) =>
-            setWorksheet({ ...worksheet, tyreCondition: e.target.value })
-          }
+          onChange={(e) => updateField("tyreCondition", e.target.value)}
         >
           <option value="">Tyre Condition</option>
           <option>New</option>
@@ -179,9 +168,7 @@ export default function DriverWorksheet({ booking, jobId }) {
         <select
           style={inputStyle}
           value={worksheet.damageType}
-          onChange={(e) =>
-            setWorksheet({ ...worksheet, damageType: e.target.value })
-          }
+          onChange={(e) => updateField("damageType", e.target.value)}
         >
           <option value="">Type of Damage</option>
           <option>Puncture</option>
@@ -194,9 +181,7 @@ export default function DriverWorksheet({ booking, jobId }) {
           style={inputStyle}
           placeholder="Puncture Cause"
           value={worksheet.punctureCause}
-          onChange={(e) =>
-            setWorksheet({ ...worksheet, punctureCause: e.target.value })
-          }
+          onChange={(e) => updateField("punctureCause", e.target.value)}
         />
       </div>
 
@@ -219,21 +204,23 @@ export default function DriverWorksheet({ booking, jobId }) {
         style={textareaStyle}
         placeholder="Notes / additional information"
         value={worksheet.notes}
-        onChange={(e) => setWorksheet({ ...worksheet, notes: e.target.value })}
+        onChange={(e) => updateField("notes", e.target.value)}
       />
 
       <input
         style={inputStyle}
         placeholder="Technician Name *"
         value={worksheet.technicianName}
-        onChange={(e) =>
-          setWorksheet({ ...worksheet, technicianName: e.target.value })
-        }
+        onChange={(e) => updateField("technicianName", e.target.value)}
       />
 
       <button type="button" onClick={saveWorksheet} style={saveButton}>
         Save Worksheet
       </button>
+
+      {booking?.worksheetCompleted && (
+        <p style={savedStyle}>Worksheet already saved for this job.</p>
+      )}
     </div>
   );
 }
@@ -246,6 +233,16 @@ const worksheetBox = {
   borderRadius: "14px",
   background: "rgba(15, 23, 42, 0.95)",
   border: "1px solid rgba(250, 204, 21, 0.45)",
+};
+
+const titleStyle = {
+  color: "#facc15",
+  margin: 0,
+};
+
+const helpStyle = {
+  color: "#cbd5e1",
+  marginTop: 0,
 };
 
 const worksheetGrid = {
@@ -283,5 +280,10 @@ const saveButton = {
   border: "none",
   background: "#16a34a",
   color: "white",
+  fontWeight: "bold",
+};
+
+const savedStyle = {
+  color: "#22c55e",
   fontWeight: "bold",
 };

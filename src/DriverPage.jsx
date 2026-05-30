@@ -8,7 +8,7 @@ import {
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "./firebaseconfig.js";
-import DriverWorksheet from "./DriverWorksheet.jsx";
+import DriversWorksheet from "./DriversWorksheet.jsx";
 
 export default function DriverPage() {
   const { id } = useParams();
@@ -37,6 +37,7 @@ export default function DriverPage() {
         resolve({
           lat: null,
           lng: null,
+          accuracy: null,
           gpsAvailable: false,
         });
         return;
@@ -55,6 +56,7 @@ export default function DriverPage() {
           resolve({
             lat: null,
             lng: null,
+            accuracy: null,
             gpsAvailable: false,
           });
         },
@@ -128,21 +130,9 @@ export default function DriverPage() {
       alert("Please upload an arrival/before-work photo before proceeding.");
     }
 
-    if (newStatus === "Completed") {
-      await stopTracking();
-    }
-
     await updateDoc(doc(db, "bookings", id), {
       status: newStatus,
       eta: etaText,
-      driverTrackingActive:
-        newStatus === "Completed"
-          ? false
-          : booking?.driverTrackingActive || false,
-      completedAt:
-        newStatus === "Completed"
-          ? new Date().toISOString()
-          : booking?.completedAt || null,
       updatedAt: serverTimestamp(),
     });
   }
@@ -169,11 +159,10 @@ export default function DriverPage() {
         [fieldName]: downloadUrl,
         [`${fieldName}Meta`]: {
           uploadedAt: uploadedAtIso,
-          uploadedAtServer: serverTimestamp(),
           uploadedBy: "driver",
-          gps: gpsStamp,
           fileName: file.name,
           fileType: file.type,
+          gps: gpsStamp,
         },
         updatedAt: serverTimestamp(),
       });
@@ -294,12 +283,7 @@ export default function DriverPage() {
 
             <div style={gridStyle}>
               {customerGps ? (
-                <a
-                  href={customerGps}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={linkStyle}
-                >
+                <a href={customerGps} target="_blank" rel="noreferrer" style={linkStyle}>
                   Navigate To Customer
                 </a>
               ) : (
@@ -399,13 +383,13 @@ export default function DriverPage() {
                     });
                   }}
                 />
-                I confirm required photos are taken and any visible damage/issues
-                have been recorded before leaving.
+                I confirm required photos are taken and any visible
+                damage/issues have been recorded before leaving.
               </label>
             </div>
 
             {booking.beforePhotoUrl ? (
-              <DriverWorksheet booking={booking} jobId={id} />
+              <DriversWorksheet booking={booking} jobId={id} />
             ) : (
               <div style={warningBox}>
                 Arrival / before photo must be uploaded before completing the
