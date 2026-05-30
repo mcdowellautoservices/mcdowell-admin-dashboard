@@ -2,18 +2,14 @@ import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
-console.log("FIREBASE API KEY:", import.meta.env.VITE_FIREBASE_API_KEY);
-console.log("FIREBASE PROJECT:", import.meta.env.VITE_FIREBASE_PROJECT_ID);
-console.log("FIREBASE AUTH:", import.meta.env.VITE_FIREBASE_AUTH_DOMAIN);
-
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+  apiKey: "PASTE_NEW_ROTATED_API_KEY_HERE",
+  authDomain: "mcdowell-tyre-app.firebaseapp.com",
+  projectId: "mcdowell-tyre-app",
+  storageBucket: "mcdowell-tyre-app.firebasestorage.app",
+  messagingSenderId: "299380777264",
+  appId: "1:299380777264:web:25b15ac214869cc8a128f5",
+  measurementId: "G-N4P0R0NBVM",
 };
 
 const app = initializeApp(firebaseConfig);
