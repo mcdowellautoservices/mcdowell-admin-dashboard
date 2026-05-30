@@ -118,110 +118,119 @@ export default function CustomerTracking() {
   return (
     <div className="trackingPage">
       <div className="trackingCard">
-        <h1>Job Tracking</h1>
+        <div className="trackingHeader">
+          <h1>McDowell Job Tracking</h1>
+          <p>Live customer updates, ETA and driver tracking</p>
+        </div>
 
         <p className="jobId">
           <strong>Job ID:</strong> <span>{id}</span>
         </p>
 
-        <h2>{customerName}</h2>
-
         <div className="statusPill">{status}</div>
 
-        <div className="infoBox">
-          <strong>Phone:</strong> {phone}
+        <div className="heroEta">
+          <span>Current ETA</span>
+          <strong>{eta}</strong>
+          <small>ETA mode: {booking.etaMode || "manual"}</small>
         </div>
 
-        <div className="infoBox">
-          <strong>Vehicle:</strong> {vehicle}
-        </div>
+        <div className="trackingGrid">
+          <div className="infoBox">
+            <strong>Customer</strong>
+            <span>{customerName}</span>
+          </div>
 
-        <div className="infoBox">
-          <strong>Registration:</strong> {registration}
-        </div>
+          <div className="infoBox">
+            <strong>Phone</strong>
+            <span>{phone}</span>
+          </div>
 
-        <div className="infoBox">
-          <strong>Address:</strong> {address}
-        </div>
+          <div className="infoBox">
+            <strong>Vehicle</strong>
+            <span>{vehicle}</span>
+          </div>
 
-        <div className="infoBox">
-          <strong>ETA:</strong> {eta}
-        </div>
+          <div className="infoBox">
+            <strong>Registration</strong>
+            <span>{registration}</span>
+          </div>
 
-        <div className="infoBox">
-          <strong>ETA Mode:</strong> {booking.etaMode || "manual"}
-        </div>
+          <div className="infoBox">
+            <strong>Address</strong>
+            <span>{address}</span>
+          </div>
 
-        <div className="infoBox">
-          <strong>Your GPS:</strong>{" "}
-          {booking.customerLat && booking.customerLng
-            ? "Shared"
-            : "Not shared yet"}
+          <div className="infoBox">
+            <strong>Customer GPS</strong>
+            <span>
+              {booking.customerLat && booking.customerLng
+                ? "Shared"
+                : "Not shared yet"}
+            </span>
+          </div>
         </div>
 
         {booking.customerLat && booking.customerLng && (
-          <div className="infoBox">
-            <strong>Your Location:</strong>{" "}
+          <div className="gpsPanel">
+            <strong>Your shared location</strong>
+            <p>
+              {Number(booking.customerLat).toFixed(6)},{" "}
+              {Number(booking.customerLng).toFixed(6)}
+            </p>
+
             <a
               href={`https://www.google.com/maps?q=${booking.customerLat},${booking.customerLng}`}
               target="_blank"
               rel="noreferrer"
             >
-              View shared location
+              View Your Shared Location
             </a>
           </div>
         )}
 
-        <div className="infoBox">
-          <strong>Driver:</strong> {booking.driverName || "Not assigned"}
-        </div>
+        <div className="driverPanel">
+          <h3>Driver Details</h3>
 
-        <div className="infoBox">
-          <strong>Driver Phone:</strong> {booking.driverPhone || "N/A"}
-        </div>
+          <div className="trackingGrid">
+            <div className="infoBox">
+              <strong>Driver</strong>
+              <span>{booking.driverName || "Not assigned"}</span>
+            </div>
 
-        <div className="infoBox">
-          <strong>Driver Vehicle:</strong> {booking.driverVehicle || "N/A"}
-        </div>
+            <div className="infoBox">
+              <strong>Driver Phone</strong>
+              <span>{booking.driverPhone || "N/A"}</span>
+            </div>
 
-        <div className="infoBox">
-          <strong>Driver GPS:</strong>{" "}
-          {booking.driverTrackingActive ? "Live" : "Offline"}
-        </div>
+            <div className="infoBox">
+              <strong>Driver Vehicle</strong>
+              <span>{booking.driverVehicle || "N/A"}</span>
+            </div>
 
-        {booking.driverLat && booking.driverLng && (
-          <div className="infoBox">
-            <strong>Driver Map:</strong>{" "}
-            <a
-              href={`https://www.google.com/maps?q=${booking.driverLat},${booking.driverLng}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              View driver location
-            </a>
+            <div className="infoBox">
+              <strong>Driver GPS</strong>
+              <span>{booking.driverTrackingActive ? "Live" : "Offline"}</span>
+            </div>
           </div>
-        )}
 
-        {booking.photoUrl && (
-          <div className="infoBox">
-            <strong>Photo Proof:</strong>{" "}
-            <a href={booking.photoUrl} target="_blank" rel="noreferrer">
-              View photo
-            </a>
-          </div>
-        )}
+          {booking.driverLat && booking.driverLng && (
+            <div className="gpsPanel driverGpsPanel">
+              <strong>Driver live location</strong>
+              <p>
+                {Number(booking.driverLat).toFixed(6)},{" "}
+                {Number(booking.driverLng).toFixed(6)}
+              </p>
 
-        {booking.signatureUrl && (
-          <div className="infoBox">
-            <strong>Signature:</strong>{" "}
-            <a href={booking.signatureUrl} target="_blank" rel="noreferrer">
-              View signature
-            </a>
-          </div>
-        )}
-
-        <div className="infoBox">
-          <strong>Notes:</strong> {notes}
+              <a
+                href={`https://www.google.com/maps?q=${booking.driverLat},${booking.driverLng}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                View Driver Location
+              </a>
+            </div>
+          )}
         </div>
 
         <div className="timeline">
@@ -236,6 +245,29 @@ export default function CustomerTracking() {
               <p>{step}</p>
             </div>
           ))}
+        </div>
+
+        {booking.photoUrl && (
+          <div className="infoBox fullBox">
+            <strong>Photo Proof</strong>
+            <a href={booking.photoUrl} target="_blank" rel="noreferrer">
+              View photo
+            </a>
+          </div>
+        )}
+
+        {booking.signatureUrl && (
+          <div className="infoBox fullBox">
+            <strong>Signature</strong>
+            <a href={booking.signatureUrl} target="_blank" rel="noreferrer">
+              View signature
+            </a>
+          </div>
+        )}
+
+        <div className="infoBox fullBox">
+          <strong>Notes</strong>
+          <span>{notes}</span>
         </div>
 
         <div className="trackingActions">
@@ -274,7 +306,12 @@ export default function CustomerTracking() {
           )}
 
           {booking.invoiceUrl ? (
-            <a href={booking.invoiceUrl} target="_blank" rel="noreferrer">
+            <a
+              href={booking.invoiceUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="invoiceButton"
+            >
               Download Invoice
             </a>
           ) : (
