@@ -66,6 +66,11 @@ export default function App() {
       invoiceUrl: "",
       jobPrice: 0,
       notes: "",
+      beforePhotoUrl: "",
+      afterPhotoUrl: "",
+      completionNotes: "",
+      signatureUrl: "",
+      completedAt: null,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -318,12 +323,67 @@ export default function App() {
               )}
             </div>
 
+            <div className="proofSection">
+              <h3>Completion Proof</h3>
+
+              <input placeholder="Before Photo URL" defaultValue={job.beforePhotoUrl || ""} onBlur={(e) => updateJob(job.id, { beforePhotoUrl: e.target.value })} />
+              <input placeholder="After Photo URL" defaultValue={job.afterPhotoUrl || ""} onBlur={(e) => updateJob(job.id, { afterPhotoUrl: e.target.value })} />
+              <input placeholder="Customer Signature URL" defaultValue={job.signatureUrl || ""} onBlur={(e) => updateJob(job.id, { signatureUrl: e.target.value })} />
+
+              <textarea
+                placeholder="Completion Notes"
+                defaultValue={job.completionNotes || ""}
+                onBlur={(e) => updateJob(job.id, { completionNotes: e.target.value })}
+              />
+
+              <div className="proofCards">
+                {job.beforePhotoUrl && (
+                  <div className="proofCard">
+                    <h4>Before Photo</h4>
+                    <a href={job.beforePhotoUrl} target="_blank" rel="noreferrer">View Before Photo</a>
+                  </div>
+                )}
+
+                {job.afterPhotoUrl && (
+                  <div className="proofCard">
+                    <h4>After Photo</h4>
+                    <a href={job.afterPhotoUrl} target="_blank" rel="noreferrer">View After Photo</a>
+                  </div>
+                )}
+
+                {job.signatureUrl && (
+                  <div className="proofCard">
+                    <h4>Customer Signature</h4>
+                    <a href={job.signatureUrl} target="_blank" rel="noreferrer">View Signature</a>
+                  </div>
+                )}
+
+                {job.completionNotes && (
+                  <div className="proofCard">
+                    <h4>Completion Notes</h4>
+                    <p>{job.completionNotes}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="statusButtons">
               <button onClick={() => updateJob(job.id, { status: "Accepted", eta: "Driver assigned" })}>Accept</button>
               <button onClick={() => updateJob(job.id, { status: "On Route", eta: "Live GPS updating", etaMode: "gps", driverTrackingActive: true })}>On Route</button>
               <button onClick={() => updateJob(job.id, { status: "Arrived", eta: "Arrived" })}>Arrived</button>
               <button onClick={() => updateJob(job.id, { status: "In Progress", eta: "In progress" })}>In Progress</button>
-              <button onClick={() => updateJob(job.id, { status: "Completed", eta: "Completed", driverTrackingActive: false })}>Complete</button>
+              <button
+                onClick={() =>
+                  updateJob(job.id, {
+                    status: "Completed",
+                    eta: "Completed",
+                    driverTrackingActive: false,
+                    completedAt: new Date().toISOString(),
+                  })
+                }
+              >
+                Complete Job
+              </button>
               <button onClick={() => updateJob(job.id, { status: "Cancelled", eta: "Cancelled", driverTrackingActive: false })}>Cancel</button>
             </div>
 
