@@ -3,7 +3,7 @@ import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: "PASTE_NEW_ROTATED_API_KEY_HERE",
+  apiKey: "AIzaSyD6aEonsVeyHZ6ZN1oHzUXtSc8o7G-EycM",
   authDomain: "mcdowell-tyre-app.firebaseapp.com",
   projectId: "mcdowell-tyre-app",
   storageBucket: "mcdowell-tyre-app.firebasestorage.app",
