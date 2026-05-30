@@ -1,324 +1,106 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import {
-  doc,
-  onSnapshot,
-  updateDoc,
-  serverTimestamp,
-} from "firebase/firestore";
+import { doc, onSnapshot, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebaseconfig.js";
 import "./CustomerTracking.css";
+
+const BUSINESS_PHONE = "447592247365";
+
+function mapLink(lat, lng) {
+  return `https://www.google.com/maps?q=${lat},${lng}`;
+}
 
 export default function CustomerTracking() {
   const { id } = useParams();
   const [booking, setBooking] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [sharingLocation, setSharingLocation] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [manualHelp, setManualHelp] = useState(false);
 
   useEffect(() => {
-    if (!id) {
-      setLoading(false);
-      return;
-    }
-
-    const unsubscribe = onSnapshot(doc(db, "bookings", id), (docSnap) => {
-      if (docSnap.exists()) {
-        setBooking({ id: docSnap.id, ...docSnap.data() });
-      } else {
-        setBooking(null);
-      }
-
-      setLoading(false);
+    if (!id) return;
+    const unsubscribe = onSnapshot(doc(db, "bookings", id), (snapshot) => {
+      if (snapshot.exists()) setBooking({ id: snapshot.id, ...snapshot.data() });
     });
-
     return () => unsubscribe();
   }, [id]);
 
-  async function shareCustomerLocation() {
+  async function saveCustomerLocation(position) {
+    await updateDoc(doc(db, "bookings", id), {
+      customerLat: position.coords.latitude,
+      customerLng: position.coords.longitude,
+      customerGpsAccuracy: position.coords.accuracy,
+      customerGpsShared: true,
+      customerGpsSharedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  }
+
+  function shareMyLocation() {
     if (!navigator.geolocation) {
-      alert("Location services are not available on this device.");
+      setManualHelp(true);
+      alert("GPS is not supported on this phone. Please use manual map sharing.");
       return;
     }
-
-    setSharingLocation(true);
-
+    setSaving(true);
+    setManualHelp(false);
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         try {
-          await updateDoc(doc(db, "bookings", id), {
-            customerLat: position.coords.latitude,
-            customerLng: position.coords.longitude,
-            customerLocationUpdated: true,
-            customerLocationUpdatedAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          });
-
-          alert("Your location has been shared with McDowell Auto Services.");
+          await saveCustomerLocation(position);
+          alert("Location shared successfully.");
         } catch (error) {
           console.error(error);
+          setManualHelp(true);
           alert("Could not save your location. Please try again.");
         } finally {
-          setSharingLocation(false);
+          setSaving(false);
         }
       },
       (error) => {
-        alert("Location error: " + error.message);
-        setSharingLocation(false);
+        setSaving(false);
+        setManualHelp(true);
+        alert("GPS error: " + error.message + ". Please allow location permission or use the manual map option.");
       },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 5000,
-      }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
   }
 
-  if (loading) {
-    return (
-      <div className="trackingPage">
-        <div className="trackingCard">
-          <h1>Loading job...</h1>
-        </div>
-      </div>
-    );
+  function statusReached(status) {
+    const order = ["New booking", "Accepted", "On Route", "Arrived", "In Progress", "Awaiting Customer Sign-Off", "Completed"];
+    return order.indexOf(booking?.status || "New booking") >= order.indexOf(status);
   }
 
-  if (!booking) {
-    return (
-      <div className="trackingPage">
-        <div className="trackingCard">
-          <h1>Job not found</h1>
-          <p>Tracking ID: {id || "Missing ID"}</p>
-        </div>
-      </div>
-    );
-  }
-
-  const customerName = booking.name || booking.customerName || "Customer";
-  const phone = booking.phone || booking.customerPhone || "N/A";
-  const vehicle = booking.vehicle || booking.vehicleType || "Not checked";
-  const registration = booking.registration || booking.reg || "N/A";
-  const address =
-    booking.address || booking.customerAddress || booking.location || "N/A";
-  const notes = booking.notes || booking.message || booking.description || "N/A";
-  const status = booking.status || "New booking";
-  const eta = booking.eta || "Awaiting ETA";
-
-  const steps = [
-    "New booking",
-    "Accepted",
-    "On Route",
-    "Arrived",
-    "In Progress",
-    "Completed",
-  ];
-
-  const activeIndex = Math.max(0, steps.indexOf(status));
+  if (!booking) return <main className="trackingPage"><section className="trackingCard">Loading...</section></main>;
 
   return (
-    <div className="trackingPage">
-      <div className="trackingCard">
-        <div className="trackingHeader">
-          <h1>McDowell Job Tracking</h1>
-          <p>Live customer updates, ETA and driver tracking</p>
-        </div>
-
-        <p className="jobId">
-          <strong>Job ID:</strong> <span>{id}</span>
-        </p>
-
-        <div className="statusPill">{status}</div>
-
-        <div className="heroEta">
-          <span>Current ETA</span>
-          <strong>{eta}</strong>
-          <small>ETA mode: {booking.etaMode || "manual"}</small>
-        </div>
-
-        <div className="trackingGrid">
-          <div className="infoBox">
-            <strong>Customer</strong>
-            <span>{customerName}</span>
-          </div>
-
-          <div className="infoBox">
-            <strong>Phone</strong>
-            <span>{phone}</span>
-          </div>
-
-          <div className="infoBox">
-            <strong>Vehicle</strong>
-            <span>{vehicle}</span>
-          </div>
-
-          <div className="infoBox">
-            <strong>Registration</strong>
-            <span>{registration}</span>
-          </div>
-
-          <div className="infoBox">
-            <strong>Address</strong>
-            <span>{address}</span>
-          </div>
-
-          <div className="infoBox">
-            <strong>Customer GPS</strong>
-            <span>
-              {booking.customerLat && booking.customerLng
-                ? "Shared"
-                : "Not shared yet"}
-            </span>
-          </div>
-        </div>
-
-        {booking.customerLat && booking.customerLng && (
-          <div className="gpsPanel">
-            <strong>Your shared location</strong>
-            <p>
-              {Number(booking.customerLat).toFixed(6)},{" "}
-              {Number(booking.customerLng).toFixed(6)}
-            </p>
-
-            <a
-              href={`https://www.google.com/maps?q=${booking.customerLat},${booking.customerLng}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              View Your Shared Location
-            </a>
-          </div>
-        )}
-
-        <div className="driverPanel">
-          <h3>Driver Details</h3>
-
-          <div className="trackingGrid">
-            <div className="infoBox">
-              <strong>Driver</strong>
-              <span>{booking.driverName || "Not assigned"}</span>
-            </div>
-
-            <div className="infoBox">
-              <strong>Driver Phone</strong>
-              <span>{booking.driverPhone || "N/A"}</span>
-            </div>
-
-            <div className="infoBox">
-              <strong>Driver Vehicle</strong>
-              <span>{booking.driverVehicle || "N/A"}</span>
-            </div>
-
-            <div className="infoBox">
-              <strong>Driver GPS</strong>
-              <span>{booking.driverTrackingActive ? "Live" : "Offline"}</span>
-            </div>
-          </div>
-
-          {booking.driverLat && booking.driverLng && (
-            <div className="gpsPanel driverGpsPanel">
-              <strong>Driver live location</strong>
-              <p>
-                {Number(booking.driverLat).toFixed(6)},{" "}
-                {Number(booking.driverLng).toFixed(6)}
-              </p>
-
-              <a
-                href={`https://www.google.com/maps?q=${booking.driverLat},${booking.driverLng}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                View Driver Location
-              </a>
-            </div>
-          )}
-        </div>
-
-        <div className="timeline">
-          {steps.map((step, index) => (
-            <div
-              key={step}
-              className={`timelineStep ${
-                index <= activeIndex ? "active" : ""
-              }`}
-            >
-              <span></span>
-              <p>{step}</p>
-            </div>
-          ))}
-        </div>
-
-        {booking.photoUrl && (
-          <div className="infoBox fullBox">
-            <strong>Photo Proof</strong>
-            <a href={booking.photoUrl} target="_blank" rel="noreferrer">
-              View photo
-            </a>
-          </div>
-        )}
-
-        {booking.signatureUrl && (
-          <div className="infoBox fullBox">
-            <strong>Signature</strong>
-            <a href={booking.signatureUrl} target="_blank" rel="noreferrer">
-              View signature
-            </a>
-          </div>
-        )}
-
-        <div className="infoBox fullBox">
-          <strong>Notes</strong>
-          <span>{notes}</span>
-        </div>
-
-        <div className="trackingActions">
-          <button
-            onClick={shareCustomerLocation}
-            className="locationButton"
-            disabled={sharingLocation}
-          >
-            {sharingLocation ? "Sharing Location..." : "Share My Location"}
-          </button>
-
-          <a href="tel:07592247365" className="callButton">
-            Call McDowell
-          </a>
-
-          <a
-            href="https://wa.me/447592247365"
-            target="_blank"
-            rel="noreferrer"
-            className="whatsappButton"
-          >
-            WhatsApp McDowell
-          </a>
-
-          {booking.paymentUrl ? (
-            <a
-              href={booking.paymentUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="paymentButton"
-            >
-              Pay Invoice
-            </a>
-          ) : (
-            <button disabled>Payment Pending</button>
-          )}
-
-          {booking.invoiceUrl ? (
-            <a
-              href={booking.invoiceUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="invoiceButton"
-            >
-              Download Invoice
-            </a>
-          ) : (
-            <button disabled>No Invoice Yet</button>
-          )}
-        </div>
-      </div>
-    </div>
+    <main className="trackingPage">
+      <section className="trackingCard">
+        <h1>McDowell Job Tracking</h1>
+        <p>Live customer updates, ETA and driver tracking</p>
+        <h2>Job ID: {id}</h2>
+        <div className="mainStatus">{booking.status || "New booking"}</div>
+        <div className="infoBox"><strong>Current ETA</strong><span>{booking.eta || "Awaiting ETA"}</span><small>ETA mode: {booking.etaMode || "manual"}</small></div>
+        <div className="infoBox"><strong>Customer</strong><span>{booking.name || "N/A"}</span></div>
+        <div className="infoBox"><strong>Phone</strong><span>{booking.phone || "N/A"}</span></div>
+        <div className="infoBox"><strong>Vehicle</strong><span>{booking.vehicle || "Not checked"}</span></div>
+        <div className="infoBox"><strong>Registration</strong><span>{booking.registration || "N/A"}</span></div>
+        <div className="infoBox"><strong>Address</strong><span>{booking.address || "N/A"}</span></div>
+        <div className="infoBox"><strong>Customer GPS</strong><span>{booking.customerGpsShared ? "Shared" : "Not shared yet"}</span>{booking.customerLat && booking.customerLng && <a href={mapLink(booking.customerLat, booking.customerLng)} target="_blank" rel="noreferrer">View My Shared Location</a>}</div>
+        <h2>Driver Details</h2>
+        <div className="infoBox"><strong>Driver</strong><span>{booking.driverName || "Unassigned"}</span></div>
+        <div className="infoBox"><strong>Driver Phone</strong><span>{booking.driverPhone || "N/A"}</span></div>
+        <div className="infoBox"><strong>Driver Vehicle</strong><span>{booking.driverVehicle || "N/A"}</span></div>
+        <div className="infoBox"><strong>Driver GPS</strong><span>{booking.driverTrackingActive ? "Live" : "Offline"}</span></div>
+        {booking.driverLat && booking.driverLng && booking.driverTrackingActive && booking.status !== "Completed" && <div className="driverLocationBox"><strong>Driver live location</strong><span>{booking.driverLat}, {booking.driverLng}</span><a href={mapLink(booking.driverLat, booking.driverLng)} target="_blank" rel="noreferrer">View Driver Location</a></div>}
+        <div className="statusList">{["New booking", "Accepted", "On Route", "Arrived", "In Progress", "Awaiting Customer Sign-Off", "Completed"].map((status) => <div key={status} className={statusReached(status) ? "statusStep done" : "statusStep"}><span />{status}</div>)}</div>
+        <div className="infoBox"><strong>Notes</strong><span>{booking.notes || "N/A"}</span></div>
+        <button className="shareBtn" onClick={shareMyLocation} disabled={saving}>{saving ? "Saving Location..." : "Share My Location"}</button>
+        {manualHelp && <div className="infoBox"><strong>Manual GPS Help</strong><span>Open Google Maps, tap your blue dot, press Share location, then send it to McDowell on WhatsApp.</span><a href="https://www.google.com/maps" target="_blank" rel="noreferrer">Open Google Maps</a></div>}
+        <a className="callBtn" href={`tel:${BUSINESS_PHONE}`}>Call McDowell</a>
+        <a className="whatsappBtn" href={`https://wa.me/${BUSINESS_PHONE}?text=${encodeURIComponent(`Hi McDowell, I am checking job ${id}`)}`} target="_blank" rel="noreferrer">WhatsApp McDowell</a>
+        <div className="infoBox"><strong>Payment</strong><span>{booking.paymentStatus || "Payment Pending"}</span></div>
+        {booking.invoiceUrl ? <a className="invoiceBtn" href={booking.invoiceUrl} target="_blank" rel="noreferrer">View Invoice</a> : <div className="invoiceBtn muted">No Invoice Yet</div>}
+      </section>
+    </main>
   );
 }

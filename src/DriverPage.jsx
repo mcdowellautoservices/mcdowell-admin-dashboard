@@ -1,565 +1,375 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import {
-  doc,
-  onSnapshot,
-  updateDoc,
-  serverTimestamp,
-} from "firebase/firestore";
+import { doc, onSnapshot, updateDoc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "./firebaseconfig.js";
 import DriversWorksheet from "./DriversWorksheet.jsx";
+import "./App.css";
+
+const ARRIVAL_DISTANCE_MILES = 0.08;
+const PAYMENT_METHODS = ["Cash", "Card", "Invoice", "Account", "Pre-paid"];
+
+function cleanPhone(phone) {
+  const cleaned = String(phone || "").replace(/\D/g, "");
+  if (!cleaned) return "";
+  return cleaned.startsWith("0") ? `44${cleaned.slice(1)}` : cleaned;
+}
+
+function distanceMiles(lat1, lon1, lat2, lon2) {
+  const toRad = (value) => (Number(value) * Math.PI) / 180;
+  const R = 3958.8;
+  const dLat = toRad(Number(lat2) - Number(lat1));
+  const dLon = toRad(Number(lon2) - Number(lon1));
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function calculateEta(driverLat, driverLng, customerLat, customerLng) {
+  if (!driverLat || !driverLng || !customerLat || !customerLng) {
+    return { distance: null, etaMinutes: null, etaText: "Live GPS updating" };
+  }
+  const distance = distanceMiles(driverLat, driverLng, customerLat, customerLng);
+  const averageMph = distance < 1 ? 15 : 28;
+  const etaMinutes = Math.max(1, Math.round((distance / averageMph) * 60));
+  return { distance, etaMinutes, etaText: `${etaMinutes} min` };
+}
+
+function SignaturePad({ title, value, onSave }) {
+  const canvasRef = useRef(null);
+  const drawingRef = useRef(false);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = Math.floor(rect.width * window.devicePixelRatio);
+    canvas.height = Math.floor(rect.height * window.devicePixelRatio);
+    const ctx = canvas.getContext("2d");
+    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    ctx.lineWidth = 3;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#ffffff";
+    if (value) {
+      const image = new Image();
+      image.onload = () => ctx.drawImage(image, 0, 0, rect.width, rect.height);
+      image.src = value;
+    }
+  }, [value]);
+
+  function point(event) {
+    const rect = canvasRef.current.getBoundingClientRect();
+    const touch = event.touches?.[0];
+    return {
+      x: (touch ? touch.clientX : event.clientX) - rect.left,
+      y: (touch ? touch.clientY : event.clientY) - rect.top,
+    };
+  }
+
+  function start(event) {
+    event.preventDefault();
+    drawingRef.current = true;
+    const ctx = canvasRef.current.getContext("2d");
+    const p = point(event);
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+  }
+
+  function move(event) {
+    if (!drawingRef.current) return;
+    event.preventDefault();
+    const ctx = canvasRef.current.getContext("2d");
+    const p = point(event);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+  }
+
+  function stop() {
+    drawingRef.current = false;
+  }
+
+  function clear() {
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    canvas.getContext("2d").clearRect(0, 0, rect.width, rect.height);
+    onSave("");
+  }
+
+  function save() {
+    onSave(canvasRef.current.toDataURL("image/png"));
+    alert("Signature saved.");
+  }
+
+  return (
+    <section className="signatureBox">
+      <h3>{title}</h3>
+      <canvas
+        ref={canvasRef}
+        className="signatureCanvas"
+        onMouseDown={start}
+        onMouseMove={move}
+        onMouseUp={stop}
+        onMouseLeave={stop}
+        onTouchStart={start}
+        onTouchMove={move}
+        onTouchEnd={stop}
+      />
+      <div className="buttonRow">
+        <button type="button" onClick={clear}>Clear</button>
+        <button type="button" className="successBtn" onClick={save}>Save Signature</button>
+      </div>
+    </section>
+  );
+}
 
 export default function DriverPage() {
   const { id } = useParams();
   const [booking, setBooking] = useState(null);
-  const [status, setStatus] = useState("GPS stopped");
+  const [gpsStatus, setGpsStatus] = useState("GPS stopped");
   const [watchId, setWatchId] = useState(null);
   const [uploading, setUploading] = useState("");
+  const [customerArrivalSignature, setCustomerArrivalSignature] = useState("");
+  const [customerCompletionSignature, setCustomerCompletionSignature] = useState("");
+  const bookingRef = useRef(null);
 
   useEffect(() => {
     if (!id) return;
-
-    const unsubscribe = onSnapshot(doc(db, "bookings", id), (docSnap) => {
-      if (docSnap.exists()) {
-        setBooking({ id: docSnap.id, ...docSnap.data() });
-      }
+    const unsubscribe = onSnapshot(doc(db, "bookings", id), (snapshot) => {
+      if (!snapshot.exists()) return;
+      const data = { id: snapshot.id, ...snapshot.data() };
+      bookingRef.current = data;
+      setBooking(data);
+      setCustomerArrivalSignature(data.customerArrivalSignature || "");
+      setCustomerCompletionSignature(data.customerCompletionSignature || "");
     });
-
     return () => unsubscribe();
   }, [id]);
 
-  const jobCompleted = booking?.status === "Completed";
+  useEffect(() => {
+    return () => {
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    };
+  }, [watchId]);
 
-  function getGpsStamp() {
-    return new Promise((resolve) => {
-      if (!navigator.geolocation) {
-        resolve({
-          lat: null,
-          lng: null,
-          accuracy: null,
-          gpsAvailable: false,
-        });
-        return;
-      }
-
+  function getCurrentGps() {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) return reject(new Error("GPS is not supported on this device."));
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          resolve({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-            accuracy: position.coords.accuracy,
-            gpsAvailable: true,
-          });
-        },
-        () => {
-          resolve({
-            lat: null,
-            lng: null,
-            accuracy: null,
-            gpsAvailable: false,
-          });
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 5000,
-        }
+        (position) => resolve({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+          timestamp: new Date().toISOString(),
+        }),
+        reject,
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
       );
     });
   }
 
-  function startTracking() {
-    if (jobCompleted) {
-      alert("GPS is disabled because this job is completed.");
-      return;
-    }
-
-    if (!navigator.geolocation) {
-      alert("GPS not supported on this device");
-      return;
-    }
-
-    setStatus("Waiting for GPS permission...");
-
-    const gpsWatchId = navigator.geolocation.watchPosition(
-      async (position) => {
-        await updateDoc(doc(db, "bookings", id), {
-          driverLat: position.coords.latitude,
-          driverLng: position.coords.longitude,
-          driverTrackingActive: true,
-          eta: "Live GPS updating",
-          etaMode: "gps",
-          updatedAt: serverTimestamp(),
-        });
-
-        setStatus("Live GPS running");
-      },
-      (error) => {
-        setStatus("GPS error");
-        alert("GPS error: " + error.message);
-      },
-      {
-        enableHighAccuracy: true,
-        maximumAge: 5000,
-        timeout: 10000,
-      }
-    );
-
-    setWatchId(gpsWatchId);
+  async function updateBooking(data) {
+    await updateDoc(doc(db, "bookings", id), { ...data, updatedAt: serverTimestamp() });
   }
 
-  async function stopTracking() {
+  function driverWhatsAppJobMessage() {
+    const job = bookingRef.current || booking || {};
+    const customerGps = job.customerLat && job.customerLng
+      ? `https://www.google.com/maps?q=${job.customerLat},${job.customerLng}`
+      : "Customer GPS not shared yet";
+    return encodeURIComponent(
+      `NEW MCDOWELL JOB\n\nJob ID: ${id}\nCustomer: ${job.name || "N/A"}\nPhone: ${job.phone || "N/A"}\nAddress: ${job.address || "N/A"}\nVehicle: ${job.vehicle || "N/A"}\nRegistration: ${job.registration || "N/A"}\n\nCustomer GPS: ${customerGps}\n\nDriver app: ${window.location.origin}/driver/${id}\nCustomer tracking: ${window.location.origin}/tracking/${id}`
+    );
+  }
+
+  async function acceptJob() {
+    await updateBooking({ status: "Accepted", eta: "Driver accepted job", acceptedAt: serverTimestamp() });
+    if (booking?.driverPhone) {
+      window.open(`https://wa.me/${cleanPhone(booking.driverPhone)}?text=${driverWhatsAppJobMessage()}`, "_blank");
+    }
+  }
+
+  async function startRoute() {
+    if (!navigator.geolocation) return alert("GPS is not supported on this device.");
+    await updateBooking({ status: "On Route", eta: "Live GPS updating", etaMode: "gps", driverTrackingActive: true, routeStartedAt: serverTimestamp() });
+    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+
+    const newWatchId = navigator.geolocation.watchPosition(
+      async (position) => {
+        const liveBooking = bookingRef.current || {};
+        const driverLat = position.coords.latitude;
+        const driverLng = position.coords.longitude;
+        const eta = calculateEta(driverLat, driverLng, liveBooking.customerLat, liveBooking.customerLng);
+        const update = {
+          driverLat,
+          driverLng,
+          driverGpsAccuracy: position.coords.accuracy,
+          driverTrackingActive: true,
+          eta: eta.etaText,
+          etaMinutes: eta.etaMinutes,
+          driverDistanceMiles: eta.distance,
+          etaMode: "gps",
+          lastDriverGpsAt: serverTimestamp(),
+        };
+        if (eta.distance !== null && eta.distance <= ARRIVAL_DISTANCE_MILES && liveBooking.status === "On Route") {
+          update.status = "Arrived";
+          update.eta = "Driver arrived";
+          update.arrivedAt = serverTimestamp();
+          update.arrivedGps = { lat: driverLat, lng: driverLng, accuracy: position.coords.accuracy, timestamp: new Date().toISOString(), autoDetected: true };
+        }
+        await updateBooking(update);
+        setGpsStatus(eta.etaMinutes ? `Live GPS running - ETA ${eta.etaMinutes} min` : "Live GPS running");
+      },
+      (error) => { setGpsStatus("GPS error"); alert(error.message); },
+      { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 }
+    );
+    setWatchId(newWatchId);
+  }
+
+  async function markArrived() {
+    try {
+      const gps = await getCurrentGps();
+      await updateBooking({ status: "Arrived", eta: "Driver arrived", arrivedAt: serverTimestamp(), arrivedGps: gps, driverLat: gps.lat, driverLng: gps.lng });
+      alert("Arrival saved. Now complete vehicle condition, before photos and customer arrival signature.");
+    } catch (error) {
+      alert("Could not capture arrival GPS: " + error.message);
+    }
+  }
+
+  async function stopGps() {
     if (watchId !== null) {
       navigator.geolocation.clearWatch(watchId);
       setWatchId(null);
     }
-
-    await updateDoc(doc(db, "bookings", id), {
-      driverTrackingActive: false,
-      eta: jobCompleted ? "Completed" : "Driver tracking stopped",
-      etaMode: "manual",
-      updatedAt: serverTimestamp(),
-    });
-
-    setStatus("GPS stopped");
+    await updateBooking({ driverTrackingActive: false, etaMode: "manual" });
+    setGpsStatus("GPS stopped");
   }
 
-  async function updateStatus(newStatus, etaText) {
-    if (newStatus === "Arrived") {
-      alert("Please upload an arrival/before-work photo before proceeding.");
-    }
-
-    await updateDoc(doc(db, "bookings", id), {
-      status: newStatus,
-      eta: etaText,
-      updatedAt: serverTimestamp(),
-    });
+  async function acceptVehicleCondition() {
+    await updateBooking({ driverDamageAcceptedBeforeWork: true, driverDamageAcceptedBeforeWorkAt: serverTimestamp() });
   }
 
-  async function uploadJobFile(file, fieldName) {
+  async function uploadStampedFile(file, fieldName) {
     if (!file) return;
-
+    let gps;
+    try { gps = await getCurrentGps(); }
+    catch { gps = { lat: null, lng: null, accuracy: null, timestamp: new Date().toISOString(), warning: "GPS unavailable during upload" }; }
     try {
       setUploading(fieldName);
-
-      const gpsStamp = await getGpsStamp();
-      const uploadedAtIso = new Date().toISOString();
       const safeName = file.name.replace(/\s+/g, "-");
-
-      const storageRef = ref(
-        storage,
-        `job-proof/${id}/${fieldName}-${Date.now()}-${safeName}`
-      );
-
+      const storageRef = ref(storage, `job-proof/${id}/${fieldName}-${Date.now()}-${safeName}`);
       await uploadBytes(storageRef, file);
-      const downloadUrl = await getDownloadURL(storageRef);
-
-      await updateDoc(doc(db, "bookings", id), {
-        [fieldName]: downloadUrl,
-        [`${fieldName}Meta`]: {
-          uploadedAt: uploadedAtIso,
-          uploadedBy: "driver",
-          fileName: file.name,
-          fileType: file.type,
-          gps: gpsStamp,
-        },
-        updatedAt: serverTimestamp(),
-      });
-
-      alert("Photo uploaded with time and GPS stamp.");
-    } catch (error) {
-      alert("Upload failed: " + error.message);
-    } finally {
-      setUploading("");
-    }
+      const url = await getDownloadURL(storageRef);
+      await updateBooking({ [fieldName]: url, [`${fieldName}Meta`]: { uploadedAt: new Date().toISOString(), uploadedBy: "driver", fileName: file.name, fileType: file.type, gps } });
+      alert("Photo uploaded with GPS and time stamp.");
+    } catch (error) { alert("Upload failed: " + error.message); }
+    finally { setUploading(""); }
   }
 
-  async function requestCustomerSignOff() {
-    if (!booking?.beforePhotoUrl) {
-      alert("Arrival / before photo is required before completion.");
-      return;
-    }
-
-    if (!booking?.worksheetCompleted) {
-      alert("Roadside worksheet must be completed before customer sign-off.");
-      return;
-    }
-
-    if (!booking?.afterPhotoUrl) {
-      alert("After photo is required before completion.");
-      return;
-    }
-
-    if (!booking?.driverDamageWaiverAccepted) {
-      alert("Driver damage waiver must be accepted before completion.");
-      return;
-    }
-
-    await stopTracking();
-
-    await updateDoc(doc(db, "bookings", id), {
-      status: "Awaiting Customer Sign-Off",
-      eta: "Awaiting customer sign-off",
-      driverTrackingActive: false,
-      updatedAt: serverTimestamp(),
-    });
-
-    alert("Customer sign-off requested.");
+  async function saveArrivalSignature(signature) {
+    setCustomerArrivalSignature(signature);
+    await updateBooking({ customerArrivalSignature: signature, customerArrivalSignatureAt: signature ? serverTimestamp() : null });
   }
 
-  async function saveCompletionNotes(value) {
-    await updateDoc(doc(db, "bookings", id), {
-      completionNotes: value,
-      updatedAt: serverTimestamp(),
+  async function proceedToFitting() {
+    if (!booking?.driverDamageAcceptedBeforeWork) return alert("Driver must accept vehicle condition first.");
+    if (!booking?.beforePhotoUrl) return alert("Before / arrival photo is required.");
+    if (!customerArrivalSignature && !booking?.customerArrivalSignature) return alert("Customer arrival signature is required.");
+    await updateBooking({ status: "In Progress", eta: "Work in progress", fittingStartedAt: serverTimestamp() });
+  }
+
+  async function saveCompletionSignature(signature) {
+    setCustomerCompletionSignature(signature);
+    await updateBooking({ customerCompletionSignature: signature, customerCompletionSignatureAt: signature ? serverTimestamp() : null });
+  }
+
+  async function togglePaymentMethod(method) {
+    const current = booking?.paymentMethods || [];
+    const next = current.includes(method) ? current.filter((item) => item !== method) : [...current, method];
+    await updateBooking({
+      paymentMethods: next,
+      paymentConfirmedByDriver: next.length > 0,
+      paymentConfirmedByDriverAt: next.length > 0 ? serverTimestamp() : null,
+      paymentStatus: next.includes("Invoice") || next.includes("Account") ? "Invoice/Account" : next.length > 0 ? "Paid" : "Unpaid",
     });
   }
 
-  const customerGps =
-    booking?.customerLat && booking?.customerLng
-      ? `https://www.google.com/maps/dir/?api=1&destination=${booking.customerLat},${booking.customerLng}`
-      : null;
-
-  if (jobCompleted) {
-    return (
-      <div style={pageStyle}>
-        <div style={cardStyle}>
-          <h1>Job Completed</h1>
-          <p>This job has been completed. Driver GPS is now closed.</p>
-          <p>
-            <strong>Job ID:</strong> {id}
-          </p>
-        </div>
-      </div>
-    );
+  async function completeJob() {
+    if (!booking?.afterPhotoUrl) return alert("Completion photo is required.");
+    if (!booking?.worksheetCompleted) return alert("Worksheet must be completed.");
+    if (!booking?.customerNoDamageWaiverAccepted) return alert("Customer no-damage waiver must be accepted.");
+    if (!customerCompletionSignature && !booking?.customerCompletionSignature) return alert("Customer completion signature is required.");
+    if (!booking?.paymentConfirmedByDriver && !booking?.paymentConfirmedByAdmin) return alert("Payment method must be confirmed by driver or admin.");
+    await stopGps();
+    await updateBooking({ status: "Completed", eta: "Completed", driverTrackingActive: false, completedAt: serverTimestamp() });
+    alert("Job completed.");
   }
+
+  function worksheetText() {
+    const w = booking?.worksheet || {};
+    return encodeURIComponent(`McDowell Auto Services Job Sheet\n\nJob ID: ${id}\nCustomer: ${booking?.name || "N/A"}\nPhone: ${booking?.phone || "N/A"}\nRegistration: ${booking?.registration || "N/A"}\nVehicle: ${booking?.vehicle || "N/A"}\nStatus: ${booking?.status || "N/A"}\n\nWorksheet:\nTyre Size: ${w.tyreSize || "N/A"}\nTyre Brand: ${w.tyreBrand || "N/A"}\nTyre Position: ${w.tyrePosition || "N/A"}\nTorque: ${w.wheelTorqueNm || "N/A"} Nm\nTPMS: ${w.tpmsChecked || "N/A"}\nPressure: ${w.tyrePressureSet || "N/A"}\nWork: ${(w.workCarriedOut || []).join(", ") || "N/A"}\nNotes: ${w.notes || "N/A"}`);
+  }
+
+  if (!booking) return <main className="driverPage"><section className="driverCard">Loading job...</section></main>;
+
+  const showArrivalWorkflow = booking.status === "Arrived" || booking.status === "In Progress" || booking.status === "Awaiting Customer Sign-Off";
+  const showCompletionPhotos = booking.status === "In Progress" || booking.status === "Awaiting Customer Sign-Off";
+  const showWorksheet = !!booking.afterPhotoUrl;
+  const showFinalSignOff = !!booking.worksheetCompleted;
 
   return (
-    <div style={pageStyle}>
-      <div style={cardStyle}>
-        <h1>Driver Job Control</h1>
-
-        <p>
-          <strong>Job ID:</strong> {id}
-        </p>
-
-        <p>
-          <strong>GPS Status:</strong> {status}
-        </p>
-
-        {booking && (
-          <>
-            <div style={boxStyle}>
-              <p>
-                <strong>Customer:</strong>{" "}
-                {booking.name || booking.customerName || "Customer"}
-              </p>
-              <p>
-                <strong>Phone:</strong>{" "}
-                {booking.phone || booking.customerPhone || "N/A"}
-              </p>
-              <p>
-                <strong>Vehicle:</strong> {booking.vehicle || "Not checked"}
-              </p>
-              <p>
-                <strong>Registration:</strong>{" "}
-                {booking.registration || booking.reg || "N/A"}
-              </p>
-              <p>
-                <strong>Address:</strong>{" "}
-                {booking.address || booking.location || "N/A"}
-              </p>
-              <p>
-                <strong>ETA:</strong> {booking.eta || "Awaiting ETA"}
-              </p>
-              <p>
-                <strong>Status:</strong> {booking.status || "New booking"}
-              </p>
-              <p>
-                <strong>Worksheet:</strong>{" "}
-                {booking.worksheetCompleted ? "Completed" : "Not completed"}
-              </p>
-            </div>
-
-            <div style={gridStyle}>
-              {customerGps ? (
-                <a href={customerGps} target="_blank" rel="noreferrer" style={linkStyle}>
-                  Navigate To Customer
-                </a>
-              ) : (
-                <button disabled style={disabledButton}>
-                  Customer GPS Not Shared
-                </button>
-              )}
-
-              <a href={`tel:${booking.phone || ""}`} style={linkStyle}>
-                Call Customer
-              </a>
-            </div>
-
-            <div style={sectionStyle}>
-              <h3>Required Job Proof</h3>
-
-              <label style={labelStyle}>
-                Arrival / Before Photo
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={(e) =>
-                    uploadJobFile(e.target.files[0], "beforePhotoUrl")
-                  }
-                />
-              </label>
-
-              <label style={labelStyle}>
-                After Photo
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={(e) =>
-                    uploadJobFile(e.target.files[0], "afterPhotoUrl")
-                  }
-                />
-              </label>
-
-              <label style={labelStyle}>
-                Extra Proof / Signature Photo
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={(e) =>
-                    uploadJobFile(e.target.files[0], "signaturePhotoUrl")
-                  }
-                />
-              </label>
-
-              {uploading && <p>Uploading {uploading}...</p>}
-
-              {booking.beforePhotoUrl && (
-                <PhotoLink
-                  title="View Before Photo"
-                  url={booking.beforePhotoUrl}
-                  meta={booking.beforePhotoUrlMeta}
-                />
-              )}
-
-              {booking.afterPhotoUrl && (
-                <PhotoLink
-                  title="View After Photo"
-                  url={booking.afterPhotoUrl}
-                  meta={booking.afterPhotoUrlMeta}
-                />
-              )}
-
-              {booking.signaturePhotoUrl && (
-                <PhotoLink
-                  title="View Extra Proof"
-                  url={booking.signaturePhotoUrl}
-                  meta={booking.signaturePhotoUrlMeta}
-                />
-              )}
-
-              <textarea
-                placeholder="Completion notes"
-                defaultValue={booking.completionNotes || ""}
-                onBlur={(e) => saveCompletionNotes(e.target.value)}
-                style={textareaStyle}
-              />
-
-              <label style={waiverStyle}>
-                <input
-                  type="checkbox"
-                  checked={!!booking.driverDamageWaiverAccepted}
-                  onChange={async (e) => {
-                    await updateDoc(doc(db, "bookings", id), {
-                      driverDamageWaiverAccepted: e.target.checked,
-                      driverDamageWaiverAcceptedAt: e.target.checked
-                        ? serverTimestamp()
-                        : null,
-                      updatedAt: serverTimestamp(),
-                    });
-                  }}
-                />
-                I confirm required photos are taken and any visible
-                damage/issues have been recorded before leaving.
-              </label>
-            </div>
-
-            {booking.beforePhotoUrl ? (
-              <DriversWorksheet booking={booking} jobId={id} />
-            ) : (
-              <div style={warningBox}>
-                Arrival / before photo must be uploaded before completing the
-                roadside worksheet.
-              </div>
-            )}
-          </>
+    <main className="driverPage">
+      <section className="driverCard">
+        <h1>McDowell Driver Job</h1>
+        <p className="highlight">Job ID: {id}</p>
+        <p>Status: <strong>{booking.status || "New booking"}</strong></p>
+        <p>ETA: <strong>{booking.eta || "Awaiting ETA"}</strong></p>
+        <p>GPS: <strong>{gpsStatus}</strong></p>
+        <div className="jobGrid">
+          <div><small>Customer</small><strong>{booking.name || "N/A"}</strong></div>
+          <div><small>Phone</small><strong>{booking.phone || "N/A"}</strong></div>
+          <div><small>Registration</small><strong>{booking.registration || "N/A"}</strong></div>
+          <div><small>Vehicle</small><strong>{booking.vehicle || "N/A"}</strong></div>
+          <div><small>Address</small><strong>{booking.address || "N/A"}</strong></div>
+          <div><small>Payment</small><strong>{booking.paymentStatus || "Unpaid"}</strong></div>
+        </div>
+        {booking.customerLat && booking.customerLng && (
+          <div className="gpsBox"><strong>Customer GPS</strong><span>{booking.customerLat}, {booking.customerLng}</span><a href={`https://www.google.com/maps/dir/?api=1&destination=${booking.customerLat},${booking.customerLng}`} target="_blank" rel="noreferrer">Navigate To Customer</a></div>
         )}
+        <div className="buttonGrid"><button type="button" onClick={acceptJob}>Accept Job</button><button type="button" onClick={startRoute}>Start Route + Auto ETA</button><button type="button" onClick={markArrived}>Arrived</button><button type="button" className="dangerBtn" onClick={stopGps}>Stop GPS</button></div>
+      </section>
 
-        <div style={gridStyle}>
-          <button onClick={startTracking} style={buttonStyle}>
-            Start Live GPS
-          </button>
-
-          <button onClick={stopTracking} style={dangerButton}>
-            Stop GPS
-          </button>
-
-          <button
-            onClick={() => updateStatus("On Route", "Driver is on route")}
-            style={buttonStyle}
-          >
-            Mark On Route
-          </button>
-
-          <button
-            onClick={() =>
-              updateStatus("Arrived", "Driver has arrived - photo required")
-            }
-            style={buttonStyle}
-          >
-            Mark Arrived / Request Photo
-          </button>
-
-          <button
-            onClick={() => updateStatus("In Progress", "Work in progress")}
-            style={buttonStyle}
-          >
-            Mark In Progress
-          </button>
-
-          <button onClick={requestCustomerSignOff} style={successButton}>
-            Request Customer Sign-Off
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PhotoLink({ title, url, meta }) {
-  return (
-    <div style={photoMetaBox}>
-      <a href={url} target="_blank" rel="noreferrer" style={linkStyle}>
-        {title}
-      </a>
-
-      {meta && (
-        <small>
-          Time: {meta.uploadedAt || "N/A"}
-          <br />
-          GPS:{" "}
-          {meta.gps?.gpsAvailable
-            ? `${meta.gps.lat}, ${meta.gps.lng}`
-            : "Not available"}
-        </small>
+      {showArrivalWorkflow && (
+        <section className="workflowPanel">
+          <h2>Arrival Condition & Before Photos</h2>
+          <button type="button" onClick={acceptVehicleCondition}>Accept / Record Vehicle Condition</button>
+          {booking.driverDamageAcceptedBeforeWork && <p className="successText">Vehicle condition accepted by driver.</p>}
+          <label>Take Before / Arrival Photo<input type="file" accept="image/*" capture="environment" onChange={(event) => uploadStampedFile(event.target.files[0], "beforePhotoUrl")} /></label>
+          {uploading === "beforePhotoUrl" && <p>Uploading before photo...</p>}
+          {booking.beforePhotoUrl && <a href={booking.beforePhotoUrl} target="_blank" rel="noreferrer">View Before Photo</a>}
+          <SignaturePad title="Customer Arrival Signature" value={customerArrivalSignature} onSave={saveArrivalSignature} />
+          <button type="button" className="successBtn" onClick={proceedToFitting}>Proceed To Fitting / In Progress</button>
+        </section>
       )}
-    </div>
+
+      {showCompletionPhotos && (
+        <section className="workflowPanel"><h2>Completion Photos</h2><label>Take Completion / After Photo<input type="file" accept="image/*" capture="environment" onChange={(event) => uploadStampedFile(event.target.files[0], "afterPhotoUrl")} /></label>{uploading === "afterPhotoUrl" && <p>Uploading completion photo...</p>}{booking.afterPhotoUrl && <a href={booking.afterPhotoUrl} target="_blank" rel="noreferrer">View Completion Photo</a>}</section>
+      )}
+
+      {showWorksheet && <DriversWorksheet booking={booking} jobId={id} />}
+
+      {showFinalSignOff && (
+        <section className="workflowPanel">
+          <h2>Customer Final Sign-Off</h2>
+          <button type="button" onClick={() => alert("Disclaimer: The customer confirms the work has been completed to their satisfaction. The customer confirms no new damage has been caused during the work. Wheel nuts have been torqued by the technician, however it remains the customer's responsibility to check wheel nut torque in accordance with manufacturer guidance after driving. McDowell Auto Services is not responsible for pre-existing damage, corrosion, seized parts, defective wheel fixings, TPMS faults, or previously damaged wheels.")}>View Disclaimer</button>
+          <label className="checkRow"><input type="checkbox" checked={!!booking.customerNoDamageWaiverAccepted} onChange={(event) => updateBooking({ customerNoDamageWaiverAccepted: event.target.checked, customerNoDamageWaiverAcceptedAt: event.target.checked ? serverTimestamp() : null })} />Customer accepts no new damage waiver and wheel nut torque responsibility.</label>
+          <SignaturePad title="Customer Completion Signature" value={customerCompletionSignature} onSave={saveCompletionSignature} />
+          <h3>Payment Confirmation</h3>
+          <div className="checkGrid">{PAYMENT_METHODS.map((method) => <label key={method} className="checkRow"><input type="checkbox" checked={(booking.paymentMethods || []).includes(method)} onChange={() => togglePaymentMethod(method)} />{method}</label>)}</div>
+          <button type="button" className="successBtn" onClick={completeJob}>Complete Job</button>
+          <div className="sendSheetBox"><h3>Send Job Sheet</h3><input placeholder="Customer email or phone" defaultValue={booking.sheetSendTo || booking.phone || ""} onBlur={(event) => updateBooking({ sheetSendTo: event.target.value })} /><a className="linkButton" href={`https://wa.me/${cleanPhone(booking.sheetSendTo || booking.phone)}?text=${worksheetText()}`} target="_blank" rel="noreferrer">WhatsApp Job Sheet</a><button type="button" onClick={() => alert("Email job sheet needs EmailJS or Firebase Functions later. WhatsApp job sheet is ready now.")}>Email Job Sheet</button></div>
+        </section>
+      )}
+    </main>
   );
 }
-
-const pageStyle = {
-  minHeight: "100vh",
-  background: "#020617",
-  color: "white",
-  padding: "20px",
-};
-
-const cardStyle = {
-  width: "100%",
-  maxWidth: "650px",
-  margin: "0 auto",
-  background: "#0f172a",
-  border: "1px solid #334155",
-  borderRadius: "20px",
-  padding: "25px",
-};
-
-const gridStyle = {
-  display: "grid",
-  gap: "10px",
-  marginBottom: "20px",
-};
-
-const boxStyle = {
-  margin: "20px 0",
-  padding: "15px",
-  border: "1px solid #334155",
-  borderRadius: "14px",
-};
-
-const sectionStyle = {
-  display: "grid",
-  gap: "12px",
-  margin: "20px 0",
-  padding: "15px",
-  border: "1px solid #334155",
-  borderRadius: "14px",
-};
-
-const labelStyle = {
-  display: "grid",
-  gap: "8px",
-  fontWeight: "bold",
-};
-
-const waiverStyle = {
-  display: "flex",
-  gap: "10px",
-  alignItems: "flex-start",
-  lineHeight: "1.4",
-};
-
-const textareaStyle = {
-  minHeight: "90px",
-  padding: "12px",
-  borderRadius: "12px",
-};
-
-const buttonStyle = {
-  padding: "14px",
-  borderRadius: "12px",
-  border: "none",
-  background: "#0284c7",
-  color: "white",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const successButton = {
-  ...buttonStyle,
-  background: "#16a34a",
-};
-
-const dangerButton = {
-  ...buttonStyle,
-  background: "#dc2626",
-};
-
-const disabledButton = {
-  ...buttonStyle,
-  background: "#475569",
-  cursor: "not-allowed",
-};
-
-const linkStyle = {
-  ...buttonStyle,
-  textAlign: "center",
-  textDecoration: "none",
-};
-
-const warningBox = {
-  padding: "14px",
-  borderRadius: "12px",
-  background: "#78350f",
-  color: "white",
-  marginBottom: "20px",
-};
-
-const photoMetaBox = {
-  display: "grid",
-  gap: "6px",
-};

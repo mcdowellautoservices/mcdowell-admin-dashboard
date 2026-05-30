@@ -54,7 +54,6 @@ export default function App() {
 
     try {
       setUploading(`${jobId}-${fieldName}`);
-
       const safeName = file.name.replace(/\s+/g, "-");
       const storageRef = ref(
         storage,
@@ -76,7 +75,6 @@ export default function App() {
 
       alert("File uploaded successfully.");
     } catch (error) {
-      console.error(error);
       alert("Upload failed: " + error.message);
     } finally {
       setUploading("");
@@ -85,7 +83,6 @@ export default function App() {
 
   async function createJob(e) {
     e.preventDefault();
-
     const suggestedDriver = DRIVERS.find((driver) => driver.active);
 
     await addDoc(collection(db, "bookings"), {
@@ -115,6 +112,14 @@ export default function App() {
       signaturePhotoUrlMeta: null,
       completionNotes: "",
       driverDamageWaiverAccepted: false,
+      driverDamageAcceptedBeforeWork: false,
+      customerArrivalSignature: "",
+      customerCompletionSignature: "",
+      customerNoDamageWaiverAccepted: false,
+      paymentMethods: [],
+      paymentConfirmedByDriver: false,
+      paymentConfirmedByAdmin: false,
+      sheetSendTo: "",
       customerDisclaimerAccepted: false,
       customerSignatureName: "",
       customerDisclaimerText: "",
@@ -165,6 +170,7 @@ export default function App() {
 
   function formatPhone(phone) {
     const cleaned = String(phone || "").replace(/\D/g, "");
+    if (!cleaned) return "";
     return cleaned.startsWith("0") ? `44${cleaned.slice(1)}` : cleaned;
   }
 
@@ -177,7 +183,6 @@ export default function App() {
         window.location.origin
       }/tracking/${job.id}`
     );
-
     return `https://wa.me/${phone}?text=${message}`;
   }
 
@@ -192,7 +197,6 @@ export default function App() {
         job.id
       }\nCustomer tracking: ${window.location.origin}/tracking/${job.id}`
     );
-
     return `https://wa.me/${phone}?text=${message}`;
   }
 
@@ -202,20 +206,21 @@ export default function App() {
     )}`;
   }
 
+  function worksheetText(job) {
+    const w = job.worksheet || {};
+    return encodeURIComponent(
+      `McDowell Auto Services Job Sheet\n\nJob ID: ${job.id}\nCustomer: ${job.name || "N/A"}\nPhone: ${job.phone || "N/A"}\nRegistration: ${job.registration || "N/A"}\nVehicle: ${job.vehicle || "N/A"}\nStatus: ${job.status || "N/A"}\n\nWorksheet:\nTyre Size: ${w.tyreSize || "N/A"}\nTyre Brand: ${w.tyreBrand || "N/A"}\nTyre Position: ${w.tyrePosition || "N/A"}\nTorque: ${w.wheelTorqueNm || "N/A"} Nm\nTPMS: ${w.tpmsChecked || "N/A"}\nPressure: ${w.tyrePressureSet || "N/A"}\nWork: ${(w.workCarriedOut || []).join(", ") || "N/A"}\nNotes: ${w.notes || "N/A"}`
+    );
+  }
+
   const visibleBookings = bookings.filter((job) => {
     const status = job.status || "New booking";
 
-    if (filter === "All" && ["Cancelled", "Completed"].includes(status)) {
-      return false;
-    }
-
+    if (filter === "All" && ["Cancelled", "Completed"].includes(status)) return false;
     if (filter === "Completed Archive" && status !== "Completed") return false;
     if (filter === "Cancelled Jobs" && status !== "Cancelled") return false;
 
-    if (
-      !["All", "Completed Archive", "Cancelled Jobs"].includes(filter) &&
-      status !== filter
-    ) {
+    if (!["All", "Completed Archive", "Cancelled Jobs"].includes(filter) && status !== filter) {
       return false;
     }
 
@@ -226,10 +231,7 @@ export default function App() {
     return text.includes(search.toLowerCase());
   });
 
-  const totalRevenue = bookings.reduce(
-    (sum, job) => sum + Number(job.jobPrice || 0),
-    0
-  );
+  const totalRevenue = bookings.reduce((sum, job) => sum + Number(job.jobPrice || 0), 0);
 
   return (
     <div className="app">
@@ -241,12 +243,7 @@ export default function App() {
 
         <div className="headerActions">
           <span className="liveBadge">LIVE</span>
-          <a
-            href={businessWhatsApp("Hi McDowell Auto Services")}
-            target="_blank"
-            rel="noreferrer"
-            className="businessWhatsAppBtn"
-          >
+          <a href={businessWhatsApp("Hi McDowell Auto Services")} target="_blank" rel="noreferrer" className="businessWhatsAppBtn">
             Business WhatsApp
           </a>
         </div>
@@ -292,30 +289,11 @@ export default function App() {
         </form>
       </section>
 
-      <input
-        className="searchBox"
-        placeholder="Search jobs..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
+      <input className="searchBox" placeholder="Search jobs..." value={search} onChange={(e) => setSearch(e.target.value)} />
 
       <section className="filters">
-        {[
-          "All",
-          "New booking",
-          "Accepted",
-          "On Route",
-          "Arrived",
-          "In Progress",
-          "Awaiting Customer Sign-Off",
-          "Completed Archive",
-          "Cancelled Jobs",
-        ].map((item) => (
-          <button
-            key={item}
-            className={filter === item ? "activeFilter" : ""}
-            onClick={() => setFilter(item)}
-          >
+        {["All", "New booking", "Accepted", "On Route", "Arrived", "In Progress", "Awaiting Customer Sign-Off", "Completed Archive", "Cancelled Jobs"].map((item) => (
+          <button key={item} className={filter === item ? "activeFilter" : ""} onClick={() => setFilter(item)}>
             {item}
           </button>
         ))}
@@ -327,18 +305,11 @@ export default function App() {
             <div className="jobTop">
               <div>
                 <h2>{job.service || "Mobile Tyre Fitting"}</h2>
-                <p>
-                  Job ID:{" "}
-                  <a href={`/tracking/${job.id}`} target="_blank" rel="noreferrer">
-                    {job.id}
-                  </a>
-                </p>
+                <p>Job ID: <a href={`/tracking/${job.id}`} target="_blank" rel="noreferrer">{job.id}</a></p>
               </div>
 
               <div className="badges">
-                <span className={`priority ${job.priority || "Normal"}`}>
-                  {job.priority || "Normal"}
-                </span>
+                <span className={`priority ${job.priority || "Normal"}`}>{job.priority || "Normal"}</span>
                 <span className="statusBadge">{job.status || "New booking"}</span>
                 <span className="paymentBadge">{job.paymentStatus || "Unpaid"}</span>
                 <span className={job.driverTrackingActive ? "driverBadge activeDriver" : "driverBadge inactiveDriver"}>
@@ -351,20 +322,8 @@ export default function App() {
               <div className="gpsBox">
                 <strong>Customer GPS Shared</strong>
                 <span>{job.customerLat}, {job.customerLng}</span>
-                <a
-                  href={`https://www.google.com/maps?q=${job.customerLat},${job.customerLng}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  📍 Open Customer Location
-                </a>
-                <a
-                  href={`https://www.google.com/maps/dir/?api=1&destination=${job.customerLat},${job.customerLng}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  🧭 Navigate
-                </a>
+                <a href={`https://www.google.com/maps?q=${job.customerLat},${job.customerLng}`} target="_blank" rel="noreferrer">📍 Open Customer Location</a>
+                <a href={`https://www.google.com/maps/dir/?api=1&destination=${job.customerLat},${job.customerLng}`} target="_blank" rel="noreferrer">🧭 Navigate</a>
               </div>
             )}
 
@@ -372,13 +331,7 @@ export default function App() {
               <div className="gpsBox driverGps">
                 <strong>Driver GPS</strong>
                 <span>{job.driverLat}, {job.driverLng}</span>
-                <a
-                  href={`https://www.google.com/maps?q=${job.driverLat},${job.driverLng}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  🚗 Open Driver Location
-                </a>
+                <a href={`https://www.google.com/maps?q=${job.driverLat},${job.driverLng}`} target="_blank" rel="noreferrer">🚗 Open Driver Location</a>
               </div>
             )}
 
@@ -393,124 +346,51 @@ export default function App() {
               <div><small>Driver Vehicle</small><strong>{job.driverVehicle || "N/A"}</strong></div>
               <div><small>Price</small><strong>£{job.jobPrice || 0}</strong></div>
               <div><small>Worksheet</small><strong>{job.worksheetCompleted ? "Completed" : "Not completed"}</strong></div>
-              <div><small>Driver Waiver</small><strong>{job.driverDamageWaiverAccepted ? "Accepted" : "Not accepted"}</strong></div>
-              <div><small>Customer Disclaimer</small><strong>{job.customerDisclaimerAccepted ? "Accepted" : "Not accepted"}</strong></div>
+              <div><small>Payment</small><strong>{job.paymentConfirmedByDriver || job.paymentConfirmedByAdmin ? "Confirmed" : "Not confirmed"}</strong></div>
+              <div><small>Customer Sign-Off</small><strong>{job.customerCompletionSignature ? "Signed" : "Not signed"}</strong></div>
             </div>
 
             <div className="driverAssignment">
               <h3>Driver Assignment</h3>
-
               <select value={job.driverName || ""} onChange={(e) => assignDriver(job.id, e.target.value)}>
                 <option value="">Unassigned</option>
                 {DRIVERS.map((driver) => (
-                  <option key={driver.id} value={driver.name}>
-                    {driver.name} - {driver.vehicle}
-                  </option>
+                  <option key={driver.id} value={driver.name}>{driver.name} - {driver.vehicle}</option>
                 ))}
               </select>
 
-              <input
-                placeholder="Driver notes"
-                defaultValue={job.driverNotes || ""}
-                onBlur={(e) => updateJob(job.id, { driverNotes: e.target.value })}
-              />
+              <input placeholder="Driver notes" defaultValue={job.driverNotes || ""} onBlur={(e) => updateJob(job.id, { driverNotes: e.target.value })} />
 
-              {job.driverPhone && (
-                <a href={whatsappDriver(job)} target="_blank" rel="noreferrer">
-                  WhatsApp Driver Job Details
-                </a>
-              )}
+              {job.driverPhone && <a href={whatsappDriver(job)} target="_blank" rel="noreferrer">WhatsApp Driver Job Details</a>}
             </div>
 
             <div className="proofSection">
               <h3>Completion Proof</h3>
-
-              <label>
-                Arrival / Before Photo Upload
-                <input type="file" accept="image/*" onChange={(e) => uploadJobFile(job.id, e.target.files[0], "beforePhotoUrl")} />
-              </label>
-
-              <label>
-                After Photo Upload
-                <input type="file" accept="image/*" onChange={(e) => uploadJobFile(job.id, e.target.files[0], "afterPhotoUrl")} />
-              </label>
-
-              <label>
-                Signature / Extra Proof Upload
-                <input type="file" accept="image/*" onChange={(e) => uploadJobFile(job.id, e.target.files[0], "signaturePhotoUrl")} />
-              </label>
+              <label>Arrival / Before Photo Upload<input type="file" accept="image/*" onChange={(e) => uploadJobFile(job.id, e.target.files[0], "beforePhotoUrl")} /></label>
+              <label>After Photo Upload<input type="file" accept="image/*" onChange={(e) => uploadJobFile(job.id, e.target.files[0], "afterPhotoUrl")} /></label>
+              <label>Signature / Extra Proof Upload<input type="file" accept="image/*" onChange={(e) => uploadJobFile(job.id, e.target.files[0], "signaturePhotoUrl")} /></label>
 
               {uploading.startsWith(job.id) && <p>Uploading...</p>}
 
-              <textarea
-                placeholder="Completion Notes"
-                defaultValue={job.completionNotes || ""}
-                onBlur={(e) => updateJob(job.id, { completionNotes: e.target.value })}
-              />
+              <textarea placeholder="Completion Notes" defaultValue={job.completionNotes || ""} onBlur={(e) => updateJob(job.id, { completionNotes: e.target.value })} />
 
               <div className="proofCards">
-                {job.beforePhotoUrl && (
-                  <div className="proofCard">
-                    <h4>Before Photo</h4>
-                    <a href={job.beforePhotoUrl} target="_blank" rel="noreferrer">View Before Photo</a>
-                  </div>
-                )}
-
-                {job.afterPhotoUrl && (
-                  <div className="proofCard">
-                    <h4>After Photo</h4>
-                    <a href={job.afterPhotoUrl} target="_blank" rel="noreferrer">View After Photo</a>
-                  </div>
-                )}
-
-                {job.signaturePhotoUrl && (
-                  <div className="proofCard">
-                    <h4>Signature / Extra Proof</h4>
-                    <a href={job.signaturePhotoUrl} target="_blank" rel="noreferrer">View Proof</a>
-                  </div>
-                )}
+                {job.beforePhotoUrl && <div className="proofCard"><h4>Before Photo</h4><a href={job.beforePhotoUrl} target="_blank" rel="noreferrer">View Before Photo</a></div>}
+                {job.afterPhotoUrl && <div className="proofCard"><h4>After Photo</h4><a href={job.afterPhotoUrl} target="_blank" rel="noreferrer">View After Photo</a></div>}
+                {job.signaturePhotoUrl && <div className="proofCard"><h4>Signature / Extra Proof</h4><a href={job.signaturePhotoUrl} target="_blank" rel="noreferrer">View Proof</a></div>}
               </div>
             </div>
 
             <div className="statusButtons">
-              <button onClick={() => updateJob(job.id, { status: "Accepted", eta: "Driver assigned" })}>
-                Accept
-              </button>
-
-              <button onClick={() => updateJob(job.id, { status: "On Route", eta: "Live GPS updating", etaMode: "gps", driverTrackingActive: true })}>
-                On Route
-              </button>
-
-              <button onClick={() => updateJob(job.id, { status: "Arrived", eta: "Arrived - photo required" })}>
-                Arrived
-              </button>
-
-              <button onClick={() => updateJob(job.id, { status: "In Progress", eta: "In progress" })}>
-                In Progress
-              </button>
-
+              <button onClick={() => updateJob(job.id, { status: "Accepted", eta: "Driver assigned" })}>Accept</button>
+              <button onClick={() => updateJob(job.id, { status: "On Route", eta: "Live GPS updating", etaMode: "gps", driverTrackingActive: true })}>On Route</button>
+              <button onClick={() => updateJob(job.id, { status: "Arrived", eta: "Arrived - photo required" })}>Arrived</button>
+              <button onClick={() => updateJob(job.id, { status: "In Progress", eta: "In progress" })}>In Progress</button>
               <button
                 onClick={() => {
-                  if (!job.beforePhotoUrl) {
-                    alert("Before/arrival photo is required before completion.");
-                    return;
-                  }
-
-                  if (!job.worksheetCompleted) {
-                    alert("Roadside worksheet must be completed before customer sign-off.");
-                    return;
-                  }
-
-                  if (!job.afterPhotoUrl) {
-                    alert("After photo is required before completion.");
-                    return;
-                  }
-
-                  if (!job.driverDamageWaiverAccepted) {
-                    alert("Driver damage waiver must be accepted first.");
-                    return;
-                  }
-
+                  if (!job.beforePhotoUrl) return alert("Before/arrival photo is required before completion.");
+                  if (!job.worksheetCompleted) return alert("Roadside worksheet must be completed before customer sign-off.");
+                  if (!job.afterPhotoUrl) return alert("After photo is required before completion.");
                   updateJob(job.id, {
                     status: "Awaiting Customer Sign-Off",
                     eta: "Awaiting customer sign-off",
@@ -520,76 +400,32 @@ export default function App() {
               >
                 Request Customer Sign-Off
               </button>
-
-              <button onClick={() => updateJob(job.id, { status: "Cancelled", eta: "Cancelled", driverTrackingActive: false })}>
-                Cancel
-              </button>
+              <button onClick={() => updateJob(job.id, { status: "Cancelled", eta: "Cancelled", driverTrackingActive: false })}>Cancel</button>
             </div>
 
             <div className="etaControls">
-              <input
-                placeholder="Manual ETA"
-                defaultValue={job.manualEta || ""}
-                onBlur={(e) => updateJob(job.id, { manualEta: e.target.value })}
-              />
-
-              <button onClick={() => updateJob(job.id, { eta: job.manualEta || "Awaiting manual ETA", etaMode: "manual" })}>
-                Update ETA
-              </button>
-
-              {job.status !== "Completed" ? (
-                <a href={`/driver/${job.id}`} target="_blank" rel="noreferrer">
-                  Open Driver GPS
-                </a>
-              ) : (
-                <button disabled>Driver GPS Closed</button>
-              )}
+              <input placeholder="Manual ETA" defaultValue={job.manualEta || ""} onBlur={(e) => updateJob(job.id, { manualEta: e.target.value })} />
+              <button onClick={() => updateJob(job.id, { eta: job.manualEta || "Awaiting manual ETA", etaMode: "manual" })}>Update ETA</button>
+              {job.status !== "Completed" ? <a href={`/driver/${job.id}`} target="_blank" rel="noreferrer">Open Driver GPS</a> : <button disabled>Driver GPS Closed</button>}
             </div>
 
             <div className="adminActions">
-              <button onClick={() => updateJob(job.id, { paymentStatus: "Paid" })}>Mark Paid</button>
-              <button onClick={() => updateJob(job.id, { paymentStatus: "Unpaid" })}>Mark Unpaid</button>
-
+              <button onClick={() => updateJob(job.id, { paymentStatus: "Paid", paymentConfirmedByAdmin: true, paymentConfirmedByAdminAt: serverTimestamp() })}>Admin Confirm Paid</button>
+              <button onClick={() => updateJob(job.id, { paymentStatus: "Unpaid", paymentConfirmedByAdmin: false })}>Mark Unpaid</button>
               <a href={whatsappCustomer(job)} target="_blank" rel="noreferrer">WhatsApp Customer</a>
               <a href={whatsappCustomer(job, "Accepted")} target="_blank" rel="noreferrer">Accepted WhatsApp</a>
               <a href={whatsappCustomer(job, "On Route")} target="_blank" rel="noreferrer">On Route WhatsApp</a>
               <a href={whatsappCustomer(job, "Arrived")} target="_blank" rel="noreferrer">Arrived WhatsApp</a>
               <a href={whatsappCustomer(job, "Completed")} target="_blank" rel="noreferrer">Completed WhatsApp</a>
-
-              <a
-                href={businessWhatsApp(
-                  `McDowell job update:\nCustomer: ${job.name || "N/A"}\nReg: ${
-                    job.registration || "N/A"
-                  }\nStatus: ${job.status || "New booking"}\nETA: ${
-                    job.eta || "Awaiting ETA"
-                  }\nTracking: ${window.location.origin}/tracking/${job.id}`
-                )}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Send To Business WhatsApp
-              </a>
+              <a href={businessWhatsApp(`McDowell job update:\nCustomer: ${job.name || "N/A"}\nReg: ${job.registration || "N/A"}\nStatus: ${job.status || "New booking"}\nETA: ${job.eta || "Awaiting ETA"}\nTracking: ${window.location.origin}/tracking/${job.id}`)} target="_blank" rel="noreferrer">Send To Business WhatsApp</a>
+              <a href={`https://wa.me/${formatPhone(job.sheetSendTo || job.phone)}?text=${worksheetText(job)}`} target="_blank" rel="noreferrer">WhatsApp Job Sheet</a>
             </div>
 
             <div className="linkInputs">
-              <input
-                placeholder="Job price"
-                type="number"
-                defaultValue={job.jobPrice || ""}
-                onBlur={(e) => updateJob(job.id, { jobPrice: Number(e.target.value || 0) })}
-              />
-
-              <input
-                placeholder="Stripe payment link"
-                defaultValue={job.paymentUrl || ""}
-                onBlur={(e) => updateJob(job.id, { paymentUrl: e.target.value })}
-              />
-
-              <input
-                placeholder="Invoice PDF link"
-                defaultValue={job.invoiceUrl || ""}
-                onBlur={(e) => updateJob(job.id, { invoiceUrl: e.target.value })}
-              />
+              <input placeholder="Job price" type="number" defaultValue={job.jobPrice || ""} onBlur={(e) => updateJob(job.id, { jobPrice: Number(e.target.value || 0) })} />
+              <input placeholder="Stripe payment link" defaultValue={job.paymentUrl || ""} onBlur={(e) => updateJob(job.id, { paymentUrl: e.target.value })} />
+              <input placeholder="Invoice PDF link" defaultValue={job.invoiceUrl || ""} onBlur={(e) => updateJob(job.id, { invoiceUrl: e.target.value })} />
+              <input placeholder="Job sheet phone/email" defaultValue={job.sheetSendTo || ""} onBlur={(e) => updateJob(job.id, { sheetSendTo: e.target.value })} />
             </div>
           </div>
         ))}
