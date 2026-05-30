@@ -48,7 +48,10 @@ a {
 .shareBtn,
 .callBtn,
 .whatsappBtn,
-.invoiceBtn {
+.invoiceBtn,
+.buttonGrid button,
+.workflowPanel button,
+.workflowPanel a {
   border: none;
   border-radius: 16px;
   padding: 14px 18px;
@@ -248,7 +251,7 @@ textarea {
 }
 
 .driverCard {
-  max-width: 720px;
+  max-width: 760px;
 }
 
 .highlight {
@@ -258,6 +261,11 @@ textarea {
 
 .mutedText {
   color: #cbd5e1;
+}
+
+.successText {
+  color: #86efac;
+  font-weight: bold;
 }
 
 .checkRow {
