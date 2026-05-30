@@ -9,7 +9,8 @@ import {
   addDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import { db } from "./firebaseconfig.js";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage } from "./firebaseconfig.js";
 import { DRIVERS } from "./data/drivers.js";
 import "./App.css";
 
@@ -17,6 +18,7 @@ export default function App() {
   const [bookings, setBookings] = useState([]);
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
+  const [uploading, setUploading] = useState("");
 
   const [newJob, setNewJob] = useState({
     service: "Mobile Tyre Fitting",
@@ -45,6 +47,34 @@ export default function App() {
     });
   }
 
+  async function uploadJobFile(jobId, file, fieldName) {
+    if (!file) return;
+
+    try {
+      setUploading(`${jobId}-${fieldName}`);
+
+      const safeName = file.name.replace(/\s+/g, "-");
+      const storageRef = ref(
+        storage,
+        `job-proof/${jobId}/${fieldName}-${Date.now()}-${safeName}`
+      );
+
+      await uploadBytes(storageRef, file);
+      const downloadUrl = await getDownloadURL(storageRef);
+
+      await updateJob(jobId, {
+        [fieldName]: downloadUrl,
+      });
+
+      alert("File uploaded successfully.");
+    } catch (error) {
+      console.error(error);
+      alert("Upload failed: " + error.message);
+    } finally {
+      setUploading("");
+    }
+  }
+
   async function createJob(e) {
     e.preventDefault();
 
@@ -68,8 +98,8 @@ export default function App() {
       notes: "",
       beforePhotoUrl: "",
       afterPhotoUrl: "",
-      completionNotes: "",
       signatureUrl: "",
+      completionNotes: "",
       completedAt: null,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -149,14 +179,19 @@ export default function App() {
   const visibleBookings = bookings.filter((job) => {
     const status = job.status || "New booking";
 
-    if (filter === "All" && ["Cancelled", "Completed"].includes(status)) return false;
+    if (filter === "All" && ["Cancelled", "Completed"].includes(status))
+      return false;
     if (filter === "Completed Archive" && status !== "Completed") return false;
     if (filter === "Cancelled Jobs" && status !== "Cancelled") return false;
-    if (!["All", "Completed Archive", "Cancelled Jobs"].includes(filter) && status !== filter) return false;
+    if (
+      !["All", "Completed Archive", "Cancelled Jobs"].includes(filter) &&
+      status !== filter
+    )
+      return false;
 
-    const text = `${job.name || ""} ${job.phone || ""} ${job.registration || ""} ${
-      job.driverName || ""
-    } ${job.priority || ""}`.toLowerCase();
+    const text = `${job.name || ""} ${job.phone || ""} ${
+      job.registration || ""
+    } ${job.driverName || ""} ${job.priority || ""}`.toLowerCase();
 
     return text.includes(search.toLowerCase());
   });
@@ -204,7 +239,10 @@ export default function App() {
                   {driver.active ? "Online" : "Offline"}
                 </span>
               </p>
-              <p>Jobs Assigned: {bookings.filter((j) => j.driverName === driver.name).length}</p>
+              <p>
+                Jobs Assigned:{" "}
+                {bookings.filter((j) => j.driverName === driver.name).length}
+              </p>
               <small>{driver.skills.join(", ")}</small>
             </div>
           ))}
@@ -247,8 +285,21 @@ export default function App() {
       />
 
       <section className="filters">
-        {["All", "New booking", "Accepted", "On Route", "Arrived", "In Progress", "Completed Archive", "Cancelled Jobs"].map((item) => (
-          <button key={item} className={filter === item ? "activeFilter" : ""} onClick={() => setFilter(item)}>
+        {[
+          "All",
+          "New booking",
+          "Accepted",
+          "On Route",
+          "Arrived",
+          "In Progress",
+          "Completed Archive",
+          "Cancelled Jobs",
+        ].map((item) => (
+          <button
+            key={item}
+            className={filter === item ? "activeFilter" : ""}
+            onClick={() => setFilter(item)}
+          >
             {item}
           </button>
         ))}
@@ -260,11 +311,18 @@ export default function App() {
             <div className="jobTop">
               <div>
                 <h2>{job.service || "Mobile Tyre Fitting"}</h2>
-                <p>Job ID: <a href={`/tracking/${job.id}`} target="_blank" rel="noreferrer">{job.id}</a></p>
+                <p>
+                  Job ID:{" "}
+                  <a href={`/tracking/${job.id}`} target="_blank" rel="noreferrer">
+                    {job.id}
+                  </a>
+                </p>
               </div>
 
               <div className="badges">
-                <span className={`priority ${job.priority || "Normal"}`}>{job.priority || "Normal"}</span>
+                <span className={`priority ${job.priority || "Normal"}`}>
+                  {job.priority || "Normal"}
+                </span>
                 <span className="statusBadge">{job.status || "New booking"}</span>
                 <span className="paymentBadge">{job.paymentStatus || "Unpaid"}</span>
                 <span className={job.driverTrackingActive ? "driverBadge activeDriver" : "driverBadge inactiveDriver"}>
@@ -326,14 +384,47 @@ export default function App() {
             <div className="proofSection">
               <h3>Completion Proof</h3>
 
-              <input placeholder="Before Photo URL" defaultValue={job.beforePhotoUrl || ""} onBlur={(e) => updateJob(job.id, { beforePhotoUrl: e.target.value })} />
-              <input placeholder="After Photo URL" defaultValue={job.afterPhotoUrl || ""} onBlur={(e) => updateJob(job.id, { afterPhotoUrl: e.target.value })} />
-              <input placeholder="Customer Signature URL" defaultValue={job.signatureUrl || ""} onBlur={(e) => updateJob(job.id, { signatureUrl: e.target.value })} />
+              <label>
+                Before Photo Upload
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) =>
+                    uploadJobFile(job.id, e.target.files[0], "beforePhotoUrl")
+                  }
+                />
+              </label>
+
+              <label>
+                After Photo Upload
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) =>
+                    uploadJobFile(job.id, e.target.files[0], "afterPhotoUrl")
+                  }
+                />
+              </label>
+
+              <label>
+                Signature Upload
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) =>
+                    uploadJobFile(job.id, e.target.files[0], "signatureUrl")
+                  }
+                />
+              </label>
+
+              {uploading.startsWith(job.id) && <p>Uploading...</p>}
 
               <textarea
                 placeholder="Completion Notes"
                 defaultValue={job.completionNotes || ""}
-                onBlur={(e) => updateJob(job.id, { completionNotes: e.target.value })}
+                onBlur={(e) =>
+                  updateJob(job.id, { completionNotes: e.target.value })
+                }
               />
 
               <div className="proofCards">
